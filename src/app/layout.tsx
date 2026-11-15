@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Toaster } from 'sonner'
 
 import { Cabecalho } from '@/components/layout/cabecalho'
+import { ProvedorAuth } from '@/components/auth/provedor-auth'
 import { PromptInstalar } from '@/components/pwa/prompt-instalar'
 import { RegistrarServiceWorker } from '@/components/pwa/registrar-sw'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -53,10 +54,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-dvh bg-background font-sans antialiased">
         <TooltipProvider delayDuration={200}>
-          <div className="flex min-h-dvh flex-col">
-            <Cabecalho />
-            <main className="flex-1">{children}</main>
-          </div>
+          <ProvedorAuth>
+            <div className="flex min-h-dvh flex-col">
+              <Cabecalho />
+              <main className="flex-1">{children}</main>
+            </div>
+          </ProvedorAuth>
           <PromptInstalar />
         </TooltipProvider>
         <Toaster position="top-center" richColors closeButton />

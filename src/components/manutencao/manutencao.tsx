@@ -48,14 +48,18 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { FormMusica, type ValoresFormulario } from './form-musica'
+import { aparenciaDoInstrumento } from '@/lib/aparencia'
+import { PainelUsuarios } from './painel-usuarios'
 import type { Musica } from '@/lib/types'
 import { cn, normalizar } from '@/lib/utils'
 
 interface ManutencaoProps {
   musicas: Musica[]
+  /** Usuário logado — usado para exibir o painel de usuários (admin). */
+  usuario: { uid: string; email: string; nome: string; admin: boolean }
 }
 
-export function Manutencao({ musicas }: ManutencaoProps) {
+export function Manutencao({ musicas, usuario }: ManutencaoProps) {
   const router = useRouter()
   const [busca, setBusca] = React.useState('')
   const [editando, setEditando] = React.useState<Musica | null | undefined>(undefined)
@@ -262,6 +266,10 @@ export function Manutencao({ musicas }: ManutencaoProps) {
         </Button>
       </div>
 
+      <div className="mb-4 space-y-4">
+        <PainelUsuarios admin={usuario.admin} uidAtual={usuario.uid} />
+      </div>
+
       <div className="relative mb-4">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -315,7 +323,7 @@ export function Manutencao({ musicas }: ManutencaoProps) {
                     items={itens.map((m) => m.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <ul className="space-y-1.5">
+                    <ul className="grid gap-1.5 sm:grid-cols-2 sm:gap-2">
                       {itens.map((m) => (
                         <ItemOrdenavel
                           key={m.id}
@@ -408,12 +416,15 @@ function ItemOrdenavel({
     id: musica.id,
   })
 
+  const aparencia = aparenciaDoInstrumento(musica.instrumento)
+  const Icone = aparencia.icone
+
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'flex items-center gap-2 rounded-xl border border-border bg-card p-2 sm:p-2.5',
+        'flex min-w-0 items-center gap-2 rounded-xl border border-border bg-card p-2 sm:p-2.5',
         isDragging && 'z-10 shadow-lg',
       )}
     >
@@ -426,6 +437,17 @@ function ItemOrdenavel({
       >
         <GripVertical className="size-4" />
       </button>
+
+      <span
+        className={cn(
+          'grid size-9 shrink-0 place-items-center rounded-lg',
+          aparencia.corFundo,
+          aparencia.cor,
+        )}
+        aria-hidden
+      >
+        <Icone className="size-4" />
+      </span>
 
       <div className="min-w-0 flex-1">
         <Link

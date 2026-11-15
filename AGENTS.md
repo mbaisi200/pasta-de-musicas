@@ -49,6 +49,17 @@ npm run dev           # conferir no navegador (desktop + viewport mobile)
 Níveis: 1) typecheck → 2) lint → 3) navegador (desktop 1280px e mobile 390px)
 → 4) build. Se o build falhar, não diga que terminou.
 
+## 🔐 Autenticação
+
+- **Toda página e toda API de dados exige sessão** (`exigirUsuario()` /
+  `exigirSessaoApi()`). Não criar rota nova que pule essa guarda.
+- Sessão = **session cookie httpOnly** (5 dias) criada em `/api/sessao`.
+- O primeiro usuário do projeto é o **administrador**; os demais são criados
+  em *Manutenção → Usuários* (só admin).
+- O navegador usa o **Firebase Web SDK apenas para o login** — nunca para
+  ler dados. O Firestore continua `deny all` para o cliente.
+- `ADMIN_EMAILS` (opcional) fixa os administradores por e-mail.
+
 ## 📐 Regras de código
 
 - `'use client'` só onde há estado/efeito/browser. O resto é Server Component.
@@ -77,9 +88,13 @@ Níveis: 1) typecheck → 2) lint → 3) navegador (desktop 1280px e mobile 390p
 | Firestore | `src/lib/repositorio/firebase.ts` |
 | Modo local (sem Firebase) | `src/lib/repositorio/local.ts` |
 | Migração do app VFP | `scripts/import-vfp.ts` |
+| Login, sessão e papéis | `src/lib/sessao.ts`, `src/proxy.ts` |
+| Layout responsivo (celular/tablet) | `docs/LAYOUT.md` |
 
 ## 📄 Documentação
 
 - `README.md` — o que o app faz, stack, como rodar.
 - `docs/DEPLOY.md` — publicação na nuvem (Vercel + Firebase), passo a passo.
+- `docs/AUTENTICACAO.md` — login/senha, papéis e segurança.
+- `docs/LAYOUT.md` — o layout em celular, tablet e desktop (breakpoints e regras).
 - Ao criar/alterar funcionalidade, **atualize o README** (seção afetada).

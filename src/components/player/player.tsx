@@ -23,8 +23,24 @@ interface PlayerProps {
   musica: Musica
   anterior: Musica | null
   proxima: Musica | null
+  posicaoNoSetList: number
+  totalNoSetList: number
 }
 
-export function Player({ musica, anterior, proxima }: PlayerProps) {
-  return <VisualizadorPdf musica={musica} anterior={anterior} proxima={proxima} />
+export function Player({
+  musica,
+  anterior,
+  proxima,
+  posicaoNoSetList,
+  totalNoSetList,
+}: PlayerProps) {
+  return (
+    <VisualizadorPdf
+      musica={musica}
+      anterior={anterior}
+      proxima={proxima}
+      posicaoNoSetList={posicaoNoSetList}
+      totalNoSetList={totalNoSetList}
+    />
+  )
 }

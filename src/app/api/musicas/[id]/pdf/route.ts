@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { getRepositorio } from '@/lib/repositorio'
+import { exigirSessaoApi } from '@/lib/sessao'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,9 @@ interface Contexto {
  * no modo local, em `.data/arquivos/{id}/`.
  */
 export async function GET(_request: Request, { params }: Contexto) {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   const { id } = await params
   const repositorio = getRepositorio()
   const musica = await repositorio.obterMusica(id)

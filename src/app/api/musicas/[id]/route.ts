@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { getRepositorio } from '@/lib/repositorio'
+import { exigirSessaoApi } from '@/lib/sessao'
 import { zBoolean } from '@/lib/validacao'
 
 export const runtime = 'nodejs'
@@ -26,6 +27,9 @@ const parcialMusica = z
   .partial()
 
 export async function GET(_request: Request, { params }: Contexto) {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   const { id } = await params
   const musica = await getRepositorio().obterMusica(id)
   if (!musica) return NextResponse.json({ erro: 'Música não encontrada.' }, { status: 404 })
@@ -33,6 +37,9 @@ export async function GET(_request: Request, { params }: Contexto) {
 }
 
 export async function PATCH(request: Request, { params }: Contexto) {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   const { id } = await params
   let dados: unknown
   try {
@@ -61,6 +68,9 @@ export async function PATCH(request: Request, { params }: Contexto) {
 }
 
 export async function DELETE(_request: Request, { params }: Contexto) {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   const { id } = await params
   try {
     await getRepositorio().excluirMusica(id)

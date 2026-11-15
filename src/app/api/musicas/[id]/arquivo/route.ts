@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { getRepositorio } from '@/lib/repositorio'
+import { exigirSessaoApi } from '@/lib/sessao'
 import { TAMANHO_MAXIMO_PDF } from '@/lib/types'
 
 export const runtime = 'nodejs'
@@ -17,6 +18,9 @@ interface Contexto {
  * (limite de 1 MiB por documento → ~700 KB de PDF).
  */
 export async function POST(request: Request, { params }: Contexto) {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   const { id } = await params
   const repositorio = getRepositorio()
 

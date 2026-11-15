@@ -8,6 +8,7 @@ import {
   FileMusic,
   Filter,
   ListFilter,
+  Mic,
   Music4,
   Play,
   RotateCcw,
@@ -29,7 +30,8 @@ import {
 } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn, normalizar } from '@/lib/utils'
+import { toast } from 'sonner'
+import { aparenciaDoInstrumento, corDoGrupo } from '@/lib/aparencia'
 import {
   FILTROS_VAZIOS,
   ORDEM_CATALOGO,
@@ -37,9 +39,35 @@ import {
   type Musica,
   type OrdemCatalogo,
 } from '@/lib/types'
+import { cn, normalizar } from '@/lib/utils'
 
 interface CatalogoProps {
   musicas: Musica[]
+}
+
+/* ------------------------------------------------- tipos da Web Speech API */
+interface ResultadoVoz {
+  results?: { 0?: { 0?: { transcript?: string } } }
+}
+interface ReconhecimentoVoz {
+  lang: string
+  interimResults: boolean
+  maxAlternatives: number
+  onresult: ((evento: ResultadoVoz) => void) | null
+  onend: (() => void) | null
+  onerror: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+type ConstrutorVoz = new () => ReconhecimentoVoz
+
+function construtorDeVoz(): ConstrutorVoz | null {
+  if (typeof window === 'undefined') return null
+  const w = window as unknown as {
+    SpeechRecognition?: ConstrutorVoz
+    webkitSpeechRecognition?: ConstrutorVoz
+  }
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
 }
 
 export function Catalogo({ musicas }: CatalogoProps) {
@@ -47,6 +75,7 @@ export function Catalogo({ musicas }: CatalogoProps) {
   const [ordem, setOrdem] = React.useState<OrdemCatalogo>('setlist')
   const [agrupado, setAgrupado] = React.useState(true)
   const [filtrosAbertos, setFiltrosAbertos] = React.useState(false)
+  const [ouvindo, setOuvindo] = React.useState(false)
 
   const valores = React.useMemo(() => {
     const conjuntos: Record<keyof Omit<Filtros, 'busca'>, Set<string>> = {
@@ -90,8 +119,10 @@ export function Catalogo({ musicas }: CatalogoProps) {
         a.grupo.localeCompare(b.grupo, 'pt-BR') || a.ordem - b.ordem ||
         a.musica.localeCompare(b.musica, 'pt-BR'),
       musica: (a, b) => a.musica.localeCompare(b.musica, 'pt-BR'),
-      autor: (a, b) => a.autor.localeCompare(b.autor, 'pt-BR') || a.musica.localeCompare(b.musica, 'pt-BR'),
-      estilo: (a, b) => a.estilo.localeCompare(b.estilo, 'pt-BR') || a.musica.localeCompare(b.musica, 'pt-BR'),
+      autor: (a, b) =>
+        a.autor.localeCompare(b.autor, 'pt-BR') || a.musica.localeCompare(b.musica, 'pt-BR'),
+      estilo: (a, b) =>
+        a.estilo.localeCompare(b.estilo, 'pt-BR') || a.musica.localeCompare(b.musica, 'pt-BR'),
       instrumento: (a, b) =>
         a.instrumento.localeCompare(b.instrumento, 'pt-BR') || a.musica.localeCompare(b.musica, 'pt-BR'),
     }
@@ -122,10 +153,41 @@ export function Catalogo({ musicas }: CatalogoProps) {
     setFiltros(FILTROS_VAZIOS)
   }
 
+  /* ------------------------------------------------------- busca por voz */
+  const reconhecimento = React.useRef<ReconhecimentoVoz | null>(null)
+
+  function alternarVoz() {
+    const Construtor = construtorDeVoz()
+    if (!Construtor) {
+      toast('Busca por voz não é suportada neste navegador.', { icon: '🎤' })
+      return
+    }
+
+    if (ouvindo) {
+      reconhecimento.current?.stop()
+      setOuvindo(false)
+      return
+    }
+
+    const rec = new Construtor()
+    rec.lang = 'pt-BR'
+    rec.interimResults = false
+    rec.maxAlternatives = 1
+    rec.onresult = (evento) => {
+      const fala = evento.results?.[0]?.[0]?.transcript
+      if (fala) setFiltros((f) => ({ ...f, busca: fala }))
+    }
+    rec.onend = () => setOuvindo(false)
+    rec.onerror = () => setOuvindo(false)
+    reconhecimento.current = rec
+    rec.start()
+    setOuvindo(true)
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl px-3 pb-24 pt-4 sm:px-6 sm:pt-6">
       {/* Busca + filtros */}
-      <div className="sticky top-14 z-30 -mx-3 mb-4 space-y-3 border-b border-border/70 bg-background/90 px-3 py-3 backdrop-blur-md sm:top-16 sm:-mx-6 sm:px-6">
+      <div className="sticky top-14 z-30 -mx-3 mb-5 space-y-3 border-b border-border/70 bg-background/90 px-3 py-3 backdrop-blur-md sm:top-16 sm:-mx-6 sm:px-6">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -133,20 +195,38 @@ export function Catalogo({ musicas }: CatalogoProps) {
               value={filtros.busca}
               onChange={(e) => setFiltros((f) => ({ ...f, busca: e.target.value }))}
               placeholder="Buscar por nome, autor, estilo..."
-              className="pl-9 pr-9"
+              className="pl-9 pr-20"
               aria-label="Buscar músicas"
               type="search"
             />
-            {filtros.busca && (
-              <button
-                type="button"
-                onClick={() => setFiltros((f) => ({ ...f, busca: '' }))}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-accent"
-                aria-label="Limpar busca"
-              >
-                <X className="size-4" />
-              </button>
-            )}
+            <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+              {filtros.busca && (
+                <button
+                  type="button"
+                  onClick={() => setFiltros((f) => ({ ...f, busca: '' }))}
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  aria-label="Limpar busca"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={alternarVoz}
+                    className={cn(
+                      'rounded-md p-1.5 transition-colors hover:bg-accent',
+                      ouvindo ? 'text-destructive' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                    aria-label="Buscar por voz"
+                  >
+                    <Mic className={cn('size-4', ouvindo && 'animate-pulse')} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Buscar por voz</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           <Sheet open={filtrosAbertos} onOpenChange={setFiltrosAbertos}>
@@ -184,7 +264,7 @@ export function Catalogo({ musicas }: CatalogoProps) {
           </Sheet>
         </div>
 
-        {/* Filtros inline no desktop */}
+        {/* Filtros inline (tablet e desktop) */}
         <div className="hidden items-center gap-2 lg:flex">
           <PainelFiltros
             filtros={filtros}
@@ -200,7 +280,7 @@ export function Catalogo({ musicas }: CatalogoProps) {
           )}
         </div>
 
-        {/* Chips de filtros ativos + ordenação */}
+        {/* Chips + ordenação */}
         <div className="flex flex-wrap items-center gap-2">
           {filtrosAtivos > 0 && (
             <>
@@ -270,9 +350,7 @@ export function Catalogo({ musicas }: CatalogoProps) {
       {filtradas.length === 0 ? (
         <EstadoVazio temMusicas={musicas.length > 0} />
       ) : (
-        <>
-          <ListaMusicas grupos={agrupado ? grupos : [['', filtradas]]} mostrarGrupos={agrupado} />
-        </>
+        <ListaMusicas grupos={agrupado ? grupos : [['', filtradas]]} mostrarGrupos={agrupado} />
       )}
     </div>
   )
@@ -297,7 +375,7 @@ function PainelFiltros({
   ]
 
   return (
-    <div className={cn('grid gap-2', compacto ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2')}>
+    <div className={cn('grid gap-2', compacto ? 'grid-cols-2 xl:grid-cols-4' : 'grid-cols-2')}>
       {campos.map(({ chave, rotulo, opcoes }) => (
         <Select
           key={chave}
@@ -330,12 +408,13 @@ function ListaMusicas({
 }) {
   return (
     <>
-      {/* Tabela no desktop */}
-      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
+      {/* Tabela — a partir de telas grandes (tablet deitado / desktop) */}
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-card lg:block">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left">
-              <th className="px-4 py-2.5 font-semibold">Nome da música</th>
+              <th className="w-10 px-3 py-2.5" />
+              <th className="px-3 py-2.5 font-semibold">Nome da música</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SetList</th>
               <th className="px-3 py-2.5 text-center font-semibold">Ordem</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">Estilo</th>
@@ -349,86 +428,126 @@ function ListaMusicas({
               <Fragment key={grupo || 'sem-grupo'}>
                 {mostrarGrupos && (
                   <tr className="border-y border-border bg-muted/20">
-                    <td colSpan={7} className="px-4 py-2">
+                    <td colSpan={8} className="px-4 py-2">
                       <span className="flex items-center gap-2">
-                        <Music4 className="size-4 text-primary" />
-                        <span className="text-sm font-semibold uppercase tracking-wide">
-                          {grupo}
-                        </span>
+                        <Music4 className={cn('size-4', corDoGrupo(grupo).cor)} />
+                        <span className="text-sm font-semibold uppercase tracking-wide">{grupo}</span>
                         <Badge variant="muted">{itens.length}</Badge>
                       </span>
                     </td>
                   </tr>
                 )}
-                {itens.map((m) => (
-                  <tr
-                    key={m.id}
-                    className="group border-b border-border/60 last:border-0 hover:bg-accent/40"
-                  >
-                    <td className="px-4 py-2.5">
-                      <Link
-                        href={`/musica/${m.id}`}
-                        className="flex items-center gap-2 font-medium hover:text-primary"
-                      >
-                        <Play className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-70" />
-                        <span className="truncate">{m.musica}</span>
-                      </Link>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{m.grupo || '—'}</td>
-                    <td className="px-3 py-2.5 text-center text-muted-foreground">{m.ordem}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{m.estilo || '—'}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{m.autor || '—'}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
-                      {m.instrumento || '—'}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <Button asChild variant="ghost" size="icon-sm">
-                        <Link href={`/musica/${m.id}`} aria-label={`Tocar ${m.musica}`}>
-                          <Play className="size-4" />
+                {itens.map((m) => {
+                  const aparencia = aparenciaDoInstrumento(m.instrumento)
+                  const Icone = aparencia.icone
+                  return (
+                    <tr
+                      key={m.id}
+                      className="group border-b border-border/60 transition-colors last:border-0 hover:bg-accent/40"
+                    >
+                      <td className="px-3 py-2.5">
+                        <span
+                          className={cn(
+                            'grid size-8 place-items-center rounded-lg',
+                            aparencia.corFundo,
+                            aparencia.cor,
+                          )}
+                        >
+                          <Icone className="size-4" />
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Link
+                          href={`/musica/${m.id}`}
+                          className="font-medium transition-colors hover:text-primary"
+                        >
+                          {m.musica}
                         </Link>
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                        {m.grupo || '—'}
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-muted-foreground tabular-nums">
+                        {m.ordem}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                        {m.estilo || '—'}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{m.autor || '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                        {m.instrumento || '—'}
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <Button asChild variant="ghost" size="icon-sm">
+                          <Link href={`/musica/${m.id}`} aria-label={`Tocar ${m.musica}`}>
+                            <Play className="size-4" />
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </Fragment>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Cards no mobile */}
-      <div className="space-y-5 md:hidden">
-        {grupos.map(([grupo, itens]) => (
-          <section key={grupo || 'sem-grupo'} className="space-y-2">
-            {mostrarGrupos && (
-              <div className="flex items-center gap-2">
-                <Music4 className="size-4 text-primary" />
-                <h2 className="text-sm font-semibold uppercase tracking-wide">{grupo}</h2>
-                <Badge variant="muted">{itens.length}</Badge>
-              </div>
-            )}
-            <ul className="space-y-2">
-              {itens.map((m) => (
-                <li key={m.id}>
-                  <Link href={`/musica/${m.id}`} className="block no-tap-highlight">
-                    <Card className="flex items-center gap-3 p-3 transition-colors active:bg-accent/60">
-                      <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
-                        <FileMusic className="size-5" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium leading-tight">{m.musica}</span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {[m.autor, m.instrumento].filter(Boolean).join(' · ') || 'Sem autor'}
-                        </span>
-                      </span>
-                      <Play className="size-4 shrink-0 text-muted-foreground" />
-                    </Card>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+      {/* Cartões — celular (1 coluna) e tablet (2 colunas) */}
+      <div className="space-y-6 sm:space-y-8 lg:hidden">
+        {grupos.map(([grupo, itens]) => {
+          const cor = corDoGrupo(grupo)
+          return (
+            <section key={grupo || 'sem-grupo'} className="space-y-2.5">
+              {mostrarGrupos && (
+                <div className="flex items-center gap-2">
+                  <Music4 className={cn('size-4', cor.cor)} />
+                  <h2 className="text-sm font-semibold uppercase tracking-wide">{grupo}</h2>
+                  <Badge variant="muted">{itens.length}</Badge>
+                  <span className={cn('h-px flex-1', cor.fundo)} />
+                </div>
+              )}
+              <ul className="grid gap-2 sm:grid-cols-2 sm:gap-3">
+                {itens.map((m) => {
+                  const aparencia = aparenciaDoInstrumento(m.instrumento)
+                  const Icone = aparencia.icone
+                  return (
+                    <li key={m.id} className="min-w-0">
+                      <Link href={`/musica/${m.id}`} className="block h-full min-w-0 no-tap-highlight">
+                        <Card className="flex h-full items-center gap-3 p-3 transition-all hover:border-primary/40 hover:bg-accent/30 active:scale-[0.99] sm:p-4">
+                          <span
+                            className={cn(
+                              'grid size-11 shrink-0 place-items-center rounded-xl',
+                              aparencia.corFundo,
+                              aparencia.cor,
+                            )}
+                          >
+                            <Icone className="size-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium leading-tight">
+                              {m.musica}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {[m.autor, m.instrumento].filter(Boolean).join(' · ') ||
+                                'Sem autor'}
+                            </span>
+                          </span>
+                          <span
+                            className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors group-hover:text-primary"
+                            aria-hidden
+                          >
+                            <Play className="size-4" />
+                          </span>
+                        </Card>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )
+        })}
       </div>
     </>
   )
@@ -438,7 +557,7 @@ function EstadoVazio({ temMusicas }: { temMusicas: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
-        <Search className="size-6" />
+        <FileMusic className="size-6" />
       </span>
       <div>
         <p className="font-medium">Nenhuma música encontrada</p>

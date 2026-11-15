@@ -42,9 +42,18 @@ interface VisualizadorPdfProps {
   musica: Musica
   anterior: Musica | null
   proxima: Musica | null
+  /** Posição da música dentro do SetList (ex.: 3) e total (ex.: 8). */
+  posicaoNoSetList: number
+  totalNoSetList: number
 }
 
-export function VisualizadorPdf({ musica, anterior, proxima }: VisualizadorPdfProps) {
+export function VisualizadorPdf({
+  musica,
+  anterior,
+  proxima,
+  posicaoNoSetList,
+  totalNoSetList,
+}: VisualizadorPdfProps) {
   const router = useRouter()
   const containerRef = React.useRef<HTMLDivElement>(null)
   const areaRef = React.useRef<HTMLDivElement>(null)
@@ -468,118 +477,129 @@ export function VisualizadorPdf({ musica, anterior, proxima }: VisualizadorPdfPr
         )}
       </div>
 
-      {/* Controles */}
+      {/* Controles — uma faixa no celular, duas a partir de tablet */}
       <div className="border-t border-border bg-card/90 px-2 pb-safe pt-2 backdrop-blur sm:px-4">
-        <div className="mx-auto flex max-w-4xl items-center gap-1.5 sm:gap-2">
-          {/* Sequência do SetList */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-10 shrink-0"
-            disabled={!anterior}
-            onClick={() => anterior && router.push(`/musica/${anterior.id}`)}
-            aria-label="Música anterior do SetList"
-            title={anterior ? `Anterior: ${anterior.musica}` : undefined}
-          >
-            <SkipBack className="size-5" />
-          </Button>
+        <div className="mx-auto max-w-4xl">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* Sequência do SetList */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-10 shrink-0"
+              disabled={!anterior}
+              onClick={() => anterior && router.push(`/musica/${anterior.id}`)}
+              aria-label="Música anterior do SetList"
+              title={anterior ? `Anterior: ${anterior.musica}` : undefined}
+            >
+              <SkipBack className="size-5" />
+            </Button>
 
-          {/* Rolagem */}
-          <Button
-            size="icon"
-            variant={rolando ? 'default' : 'secondary'}
-            className="size-12 shrink-0 rounded-full"
-            onClick={alternarRolamento}
-            aria-label={rolando ? 'Parar rolagem' : 'Iniciar rolagem automática'}
-          >
-            {rolando ? <Pause className="size-5" /> : <Play className="size-5" />}
-          </Button>
+            {/* Rolagem */}
+            <Button
+              size="icon"
+              variant={rolando ? 'default' : 'secondary'}
+              className="size-12 shrink-0 rounded-full shadow-sm"
+              onClick={alternarRolamento}
+              aria-label={rolando ? 'Parar rolagem' : 'Iniciar rolagem automática'}
+            >
+              {rolando ? <Pause className="size-5" /> : <Play className="size-5" />}
+            </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-10 shrink-0"
-            disabled={!proxima}
-            onClick={() => proxima && router.push(`/musica/${proxima.id}`)}
-            aria-label="Próxima música do SetList"
-            title={proxima ? `Próxima: ${proxima.musica}` : undefined}
-          >
-            <SkipForward className="size-5" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-10 shrink-0"
+              disabled={!proxima}
+              onClick={() => proxima && router.push(`/musica/${proxima.id}`)}
+              aria-label="Próxima música do SetList"
+              title={proxima ? `Próxima: ${proxima.musica}` : undefined}
+            >
+              <SkipForward className="size-5" />
+            </Button>
 
-          {/* Velocidade */}
-          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background px-1.5 py-1">
-            <Gauge className="size-4 text-muted-foreground" />
-            <Slider
-              value={[velocidade]}
-              min={VELOCIDADE_MIN}
-              max={VELOCIDADE_MAX}
-              step={1}
-              onValueChange={([v]) => mudarVelocidade(v)}
-              className="w-16 sm:w-28"
-              aria-label="Velocidade da rolagem"
-            />
-            <span className="w-4 text-center text-sm font-semibold tabular-nums">{velocidade}</span>
+            {/* Velocidade */}
+            <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background px-1.5 py-1">
+              <Gauge className="size-4 text-muted-foreground" />
+              <Slider
+                value={[velocidade]}
+                min={VELOCIDADE_MIN}
+                max={VELOCIDADE_MAX}
+                step={1}
+                onValueChange={([v]) => mudarVelocidade(v)}
+                className="w-14 sm:w-24 md:w-28"
+                aria-label="Velocidade da rolagem"
+              />
+              <span className="w-4 text-center text-sm font-semibold tabular-nums">{velocidade}</span>
+            </div>
+
+            {/* Páginas + zoom — ganham espaço próprio a partir de tablet */}
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-10"
+                onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.25).toFixed(2))))}
+                aria-label="Diminuir zoom"
+              >
+                <ZoomOut className="size-5" />
+              </Button>
+              <span className="w-11 text-center text-xs font-medium tabular-nums text-muted-foreground">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-10"
+                onClick={() => setZoom((z) => Math.min(3, Number((z + 0.25).toFixed(2))))}
+                aria-label="Aumentar zoom"
+              >
+                <ZoomIn className="size-5" />
+              </Button>
+
+              <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-10"
+                onClick={paginaAnterior}
+                disabled={paginaAtual <= 1}
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="size-5" />
+              </Button>
+              <span className="min-w-14 text-center text-sm font-medium tabular-nums">
+                {paginaAtual}
+                <span className="text-muted-foreground">/{numPaginas || '—'}</span>
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-10"
+                onClick={proximaPagina}
+                disabled={paginaAtual >= (numPaginas || 1)}
+                aria-label="Próxima página"
+              >
+                <ChevronRight className="size-5" />
+              </Button>
+            </div>
           </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-10"
-              onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.25).toFixed(2))))}
-              aria-label="Diminuir zoom"
-            >
-              <ZoomOut className="size-5" />
-            </Button>
-            <span className="w-11 text-center text-xs font-medium tabular-nums text-muted-foreground">
-              {Math.round(zoom * 100)}%
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-10"
-              onClick={() => setZoom((z) => Math.min(3, Number((z + 0.25).toFixed(2))))}
-              aria-label="Aumentar zoom"
-            >
-              <ZoomIn className="size-5" />
-            </Button>
+          {/* Posição no SetList */}
+          {musica.grupo && (
+            <p className="mt-1.5 hidden text-center text-xs text-muted-foreground sm:block">
+              <span className="font-medium text-foreground">{musica.grupo}</span>
+              {totalNoSetList > 1 && ` · ${posicaoNoSetList} de ${totalNoSetList}`}
+            </p>
+          )}
 
-            <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-10"
-              onClick={paginaAnterior}
-              disabled={paginaAtual <= 1}
-              aria-label="Página anterior"
-            >
-              <ChevronLeft className="size-5" />
-            </Button>
-            <span className="min-w-14 text-center text-sm font-medium tabular-nums">
-              {paginaAtual}
-              <span className="text-muted-foreground">/{numPaginas || '—'}</span>
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-10"
-              onClick={proximaPagina}
-              disabled={paginaAtual >= (numPaginas || 1)}
-              aria-label="Próxima página"
-            >
-              <ChevronRight className="size-5" />
-            </Button>
-          </div>
+          {/* Observação da música */}
+          {musica.observacao && (
+            <p className="mt-1 truncate text-center text-xs text-muted-foreground">
+              {musica.observacao}
+            </p>
+          )}
         </div>
-
-        {/* Observação da música */}
-        {musica.observacao && (
-          <p className="mx-auto mt-2 max-w-4xl truncate text-center text-xs text-muted-foreground">
-            {musica.observacao}
-          </p>
-        )}
       </div>
 
       {/* Atalho: som do metrônomo/aviso de rolagem */}

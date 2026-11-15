@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 
 import { Player } from '@/components/player/player'
 import { getRepositorio } from '@/lib/repositorio'
+import { exigirUsuario } from '@/lib/sessao'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PaginaMusica({ params }: Props) {
+  await exigirUsuario()
+
   const { id } = await params
   const repositorio = getRepositorio()
   const musica = await repositorio.obterMusica(id)
@@ -35,5 +38,13 @@ export default async function PaginaMusica({ params }: Props) {
   const anterior = posicao > 0 ? irmas[posicao - 1] : null
   const proxima = posicao >= 0 && posicao < irmas.length - 1 ? irmas[posicao + 1] : null
 
-  return <Player musica={musica} anterior={anterior} proxima={proxima} />
+  return (
+    <Player
+      musica={musica}
+      anterior={anterior}
+      proxima={proxima}
+      posicaoNoSetList={posicao >= 0 ? posicao + 1 : 1}
+      totalNoSetList={irmas.length}
+    />
+  )
 }

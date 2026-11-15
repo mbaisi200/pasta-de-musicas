@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { getRepositorio } from '@/lib/repositorio'
+import { exigirSessaoApi } from '@/lib/sessao'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,10 +18,15 @@ const corpoConfig = z.object({
 })
 
 export async function GET() {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
   return NextResponse.json({ configuracoes: await getRepositorio().lerConfiguracoes() })
 }
 
 export async function PUT(request: Request) {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   let dados: unknown
   try {
     dados = await request.json()

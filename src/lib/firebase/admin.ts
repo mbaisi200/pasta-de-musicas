@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app'
+import { getAuth as getAuthAdmin, type Auth } from 'firebase-admin/auth'
 import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 
 /**
@@ -11,12 +12,6 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore'
  *
  * Não usamos o Cloud Storage: desde 03/02/2026 ele exige o plano pago (Blaze).
  * Os PDFs das partituras ficam dentro do Firestore (base64), em subdocumento.
- */
-/**
- * Inicialização do Firebase Admin SDK (servidor).
- *
- * Todo o acesso a dados passa por aqui — o browser nunca fala direto com o
- * Firestore/Storage, e as regras do Firebase podem ficar restritivas.
  */
 
 function pegarApp(): App {
@@ -38,6 +33,7 @@ function pegarApp(): App {
 }
 
 let db: Firestore | null = null
+let auth: Auth | null = null
 
 export function getDb(): Firestore {
   if (!db) {
@@ -45,6 +41,12 @@ export function getDb(): Firestore {
     db.settings({ ignoreUndefinedProperties: true })
   }
   return db
+}
+
+/** Firebase Authentication (login/senha) — usado no servidor. */
+export function getAuth(): Auth {
+  if (!auth) auth = getAuthAdmin(pegarApp())
+  return auth
 }
 
 /** Verdadeiro quando o Firebase está configurado no ambiente. */

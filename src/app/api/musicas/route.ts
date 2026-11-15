@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { getRepositorio } from '@/lib/repositorio'
+import { exigirSessaoApi } from '@/lib/sessao'
 import { zBoolean } from '@/lib/validacao'
 
 export const runtime = 'nodejs'
@@ -20,11 +21,17 @@ const corpoMusica = z.object({
 })
 
 export async function GET() {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   const musicas = await getRepositorio().listarMusicas()
   return NextResponse.json({ musicas })
 }
 
 export async function POST(request: Request) {
+  const sessao = await exigirSessaoApi()
+  if (!sessao.ok) return sessao.resposta
+
   let dados: unknown
   try {
     dados = await request.json()
