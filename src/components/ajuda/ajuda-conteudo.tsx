@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 
 import { Afinador } from '@/components/ajuda/afinador'
+import { PainelUsuarios } from '@/components/manutencao/painel-usuarios'
 import { Metronomo } from '@/components/ajuda/metronomo'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -74,9 +75,10 @@ function iconeEquipamento(valor: Equipamento) {
 
 interface AjudaConteudoProps {
   configuracoes: Configuracoes
+  usuario: { uid: string; email: string; nome: string; admin: boolean }
 }
 
-export function AjudaConteudo({ configuracoes }: AjudaConteudoProps) {
+export function AjudaConteudo({ configuracoes, usuario }: AjudaConteudoProps) {
   const [aba, setAba] = React.useState('sobre')
 
   // Preferência salva no dispositivo. `useSyncExternalStore` evita o
@@ -110,7 +112,10 @@ export function AjudaConteudo({ configuracoes }: AjudaConteudoProps) {
     <div className="mx-auto w-full max-w-4xl px-3 pb-24 pt-4 sm:px-6 sm:pt-6">
       <header className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Ajuda</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <Music4 className="size-6 text-primary" />
+            Ajuda
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Tudo o que você precisa para tocar com o app
           </p>
@@ -248,6 +253,16 @@ export function AjudaConteudo({ configuracoes }: AjudaConteudoProps) {
           <Metronomo />
         </TabsContent>
       </Tabs>
+
+      {/* Administração — só o administrador vê */}
+      {usuario.admin && (
+        <div className="mt-6 space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Administração
+          </h2>
+          <PainelUsuarios admin={usuario.admin} uidAtual={usuario.uid} />
+        </div>
+      )}
     </div>
   )
 }

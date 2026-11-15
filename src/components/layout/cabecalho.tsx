@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutGrid, ListMusic, LogOut, Moon, Settings2, Sun, Wrench } from 'lucide-react'
+import { LayoutGrid, LogOut, Moon, Settings2, Sun, Wrench } from 'lucide-react'
+
+import { ClaveDeSolMarca, Colcheias } from '@/components/icones/musicais'
 
 import { useAuth } from '@/components/auth/provedor-auth'
 import { BotaoAtalhos } from '@/components/layout/botao-atalhos'
@@ -20,7 +22,7 @@ import { cn } from '@/lib/utils'
 import { useTema } from '@/hooks/use-tema'
 
 const LINKS = [
-  { href: '/', rotulo: 'Músicas', icone: ListMusic },
+  { href: '/', rotulo: 'Músicas', icone: Colcheias },
   { href: '/manutencao', rotulo: 'Manutenção', icone: Wrench },
   { href: '/ajuda', rotulo: 'Ajuda', icone: Settings2 },
 ]
@@ -28,21 +30,25 @@ const LINKS = [
 export function Cabecalho() {
   const pathname = usePathname()
   const [tema, setTema] = useTema()
-  const { usuario, sair } = useAuth()
+  const { usuario, sair, carregando } = useAuth()
 
   // No player a interface é full-screen; na tela de login não há cabeçalho.
   if (pathname.startsWith('/musica/') || pathname.startsWith('/entrar')) return null
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/65">
+      {/* fio de luz no rodapé do cabeçalho */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px fio-de-luz opacity-70" />
+
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 pt-safe sm:h-16 sm:px-6">
-        <Link href="/" className="flex min-w-0 items-center gap-2.5 no-tap-highlight">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/25">
-            <ListMusic className="size-5" />
+        <Link href="/" className="group flex min-w-0 items-center gap-2.5 no-tap-highlight">
+          <span className="relative grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25 transition-transform duration-300 group-hover:scale-105">
+            <ClaveDeSolMarca className="size-6" />
+            <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/20" />
           </span>
           <span className="min-w-0">
             <span className="block truncate text-[13px] font-semibold leading-tight sm:text-base">
-              Pasta de Músicas
+              Pasta de <span className="texto-latao">Músicas</span>
             </span>
             <span className="hidden text-xs text-muted-foreground sm:block">
               Seu repertório em qualquer dispositivo
@@ -116,6 +122,13 @@ export function Cabecalho() {
           </Tooltip>
 
           <BotaoAtalhos />
+
+          {carregando && !usuario && (
+            <span
+              className="size-9 animate-pulse rounded-full bg-muted sm:size-10"
+              aria-hidden
+            />
+          )}
 
           {usuario && (
             <DropdownMenu>

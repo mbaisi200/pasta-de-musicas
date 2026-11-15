@@ -2,6 +2,20 @@
 
 Instruções para agentes de código (IA) neste repositório.
 
+> ## ⛔ Regra de ouro — Git
+>
+> **Nunca execute `git commit` nem `git push` sem pedido explícito e anterior
+> do usuário.** Alterar o código, criar arquivos, rodar testes e deixar tudo
+> pronto **não** autoriza commit nem push.
+>
+> - Pedido de alteração ≠ pedido de commit ≠ pedido de push.
+> - O **push** exige o **próprio** pedido do usuário e a confirmação em dois
+>   passos (resumo → "confirma o push?" → "sim").
+> - Segredo em disco? Nunca. Token no chat? Use só na hora e avise para revogar.
+>
+> Detalhes, exemplos de comando e o que **não** fazer: seção
+> **🚫 COMMIT E PUSH** logo abaixo.
+
 ## O que é este projeto
 
 Versão web/nuvem do app **Músicas** (Visual FoxPro 9, desktop Windows).
@@ -12,17 +26,66 @@ Stack: **Next.js 16** (App Router) + React 19 + TypeScript strict + Tailwind v4 
 Firebase (Firestore, Admin SDK no servidor) + react-pdf (pdf.js).
 Deploy: **Vercel**. Funciona como PWA (instalável no Android/iOS).
 
-## 🚫 Git
+## 🚫 COMMIT E PUSH — LEIA ANTES DE QUALQUER COMANDO GIT
 
-- **NUNCA** faça `git push`, `git commit` ou qualquer operação de push sem pedido
-  **explícito** do usuário. Pedido de alteração ≠ pedido de push.
-- Confirmação em **dois passos**: o usuário pede o push → o agente mostra o
-  resumo (arquivos, versão) → o usuário confirma ("sim") → só então o push sai.
-- **Um único commit e um único push** com tudo (código + docs + migrations).
-- Nunca commite segredos: `.env`, `.env.local`, `service-account.json`, `*.key`.
-  O pre-commit hook (se existir) bloqueia esses arquivos.
-- `BUILD_NUMBER`/versão: este projeto não usa version.json. A versão do app é o
-  campo `versao` em `configuracoes/app` (Firestore) — atualize no importador.
+> **REGRA ABSOLUTA: nunca execute `git commit` nem `git push` sem que o usuário
+> tenha pedido isso de forma explícita e ANTES da execução.**
+
+| Situação | Pode commitar? | Pode dar push? |
+| --- | --- | --- |
+| "melhore o layout", "crie a tela X", "isso está errado" | ❌ **NÃO** | ❌ **NÃO** |
+| "faça o commit" | ✅ sim | ❌ não (push é outro pedido) |
+| "sobe pro GitHub" / "faz o push" | ✅ sim | ⚠️ só após a confirmação do passo 2 |
+| "commita e sobe" | ✅ sim | ⚠️ só após a confirmação do passo 2 |
+
+### As regras, uma a uma
+
+1. **Pedido de alteração ≠ pedido de commit.** Frases como "pode alterar",
+   "ajuste", "está ruim", "faça isso" autorizam **apenas a alteração local**.
+   O arquivo fica modificado no disco, sem commit.
+2. **Commit só com pedido explícito**: "faça o commit", "commita", "commite",
+   "gera o commit". Sem essas palavras, **não commita** — mesmo que o
+   trabalho esteja pronto e testado.
+3. **Push é uma etapa separada** do commit. Mesmo com o commit autorizado, o
+   push exige o **próprio** pedido do usuário.
+4. **Confirmação em dois passos para o push**:
+   1. o usuário pede o push → o agente mostra o **resumo** (branch, arquivos,
+      commit, o que será publicado) e pergunta: *"confirma o push em main?"*
+   2. só com um **"sim"** explícito o push sai.
+   - Um "sim" dito antes do resumo **não** vale; token colado no chat **não**
+     vale; "já pode subir" **não** vale.
+5. **Um único commit e um único push** com tudo (código + docs + scripts +
+   migrations) — nunca dois pushes do mesmo conteúdo, nunca um commit
+   "de ajuste" sobrando depois.
+6. **Antes de commitar**, obrigatoriamente:
+   ```bash
+   npm run lint && npm run typecheck && npm run build && git status
+   ```
+   e conferir se **nada** ficou de fora (`git status` limpo depois do commit).
+7. **Nunca commitar segredos**: `.env`, `.env.local`, chave da Service Account
+   (`*.json` do Firebase), `*.key`, `*.pem`, `*.pfx`. O `.env.example` pode
+   entrar, **apenas** com placeholders.
+8. **Token colado no chat é token comprometido**: use só na hora do push,
+   **sem** gravar em arquivo, `.git/config`, remote ou `~/.git-credentials` —
+   e **avise para revogar depois**.
+9. Se o usuário pedir para reverter, use `git revert` (não `reset`), para não
+   apagar histórico já publicado.
+
+### Como fazer o push sem deixar o token no disco
+
+```bash
+cat > /tmp/askpass.sh <<'EOF'
+#!/bin/sh
+case "$1" in
+  *sername*) echo "x-access-token" ;;
+  *assword*) echo "$GITHUB_TOKEN" ;;
+esac
+EOF
+chmod +x /tmp/askpass.sh
+GITHUB_TOKEN="..." GIT_ASKPASS=/tmp/askpass.sh GIT_TERMINAL_PROMPT=0 \
+  git push https://github.com/<user>/<repo>.git main
+rm -f /tmp/askpass.sh
+```
 
 ## 🗄️ Dados
 

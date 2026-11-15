@@ -5,13 +5,18 @@
  * (`.next/static`) e a pasta `public/` ficam fora dele. Este script copia
  * ambos para dentro — o mesmo que o Dockerfile faz — e sobe o servidor.
  *
+ * Também carrega o `.env.local` no ambiente do processo: o servidor
+ * standalone muda o diretório de trabalho para `.next/standalone` e, sem
+ * isso, não encontraria o arquivo de variáveis (erro "FIREBASE_PROJECT_ID
+ * ausente").
+ *
  *   npm run build && npm start
  */
-import { cp, mkdir } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { cp } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawn } from 'node:child_process'
 
 const raiz = dirname(dirname(fileURLToPath(import.meta.url)))
 const standalone = join(raiz, '.next', 'standalone')
@@ -21,7 +26,30 @@ if (!existsSync(standalone)) {
   process.exit(1)
 }
 
-await mkdir(join(standalone, '.next'), { recursive: true })
+/* ------------------------------------------------- variáveis de ambiente */
+function carregarEnvLocal() {
+  const caminho = join(raiz, '.env.local')
+  if (!existsSync(caminho)) return {}
+  const valores = {}
+  for (const linha of readFileSync(caminho, 'utf-8').split('\n')) {
+    if (!linha.trim() || linha.trim().startsWith('#')) continue
+    const separador = linha.indexOf('=')
+    if (separador < 1) continue
+    const nome = linha.slice(0, separador).trim()
+    const valor = linha
+      .slice(separador + 1)
+      .trim()
+      .replace(/^"(.*)"$/, '$1')
+      .replace(/\\n/g, '\n')
+    valores[nome] = valor
+  }
+  return valores
+}
+
+const env = { ...process.env, ...carregarEnvLocal() }
+
+/* ------------------------------------------------------ arquivos estáticos */
+mkdirSync(join(standalone, '.next'), { recursive: true })
 
 for (const [origem, destino] of [
   [join(raiz, '.next', 'static'), join(standalone, '.next', 'static')],
@@ -34,7 +62,7 @@ for (const [origem, destino] of [
 
 const servidor = spawn('node', [join(standalone, 'server.js')], {
   stdio: 'inherit',
-  env: { ...process.env, PORT: process.env.PORT ?? '3000', HOSTNAME: '0.0.0.0' },
+  env: { ...env, PORT: process.env.PORT ?? '3000', HOSTNAME: '0.0.0.0' },
 })
 
 servidor.on('exit', (codigo) => process.exit(codigo ?? 0))

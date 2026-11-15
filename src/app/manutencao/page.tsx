@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaManutencao() {
-  const usuario = await exigirUsuario()
+  await exigirUsuario()
 
   const musicas = await getRepositorio().listarMusicas()
-  return <Manutencao musicas={musicas} usuario={usuario} />
+  return <Manutencao musicas={musicas} />
 }

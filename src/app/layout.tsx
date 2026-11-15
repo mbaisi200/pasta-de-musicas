@@ -52,7 +52,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: scriptTema }} />
       </head>
-      <body className="min-h-dvh bg-background font-sans antialiased">
+      <body className="grao relative min-h-dvh bg-background font-sans antialiased">
+        <div className="aurora" aria-hidden />
         <TooltipProvider delayDuration={200}>
           <ProvedorAuth>
             <div className="flex min-h-dvh flex-col">

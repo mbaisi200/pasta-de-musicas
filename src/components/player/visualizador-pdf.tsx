@@ -38,6 +38,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { CapaSetList } from '@/components/capa/capa-setlist'
 import { registrarUltimaMusica } from '@/components/catalogo/continuar'
 import { aparenciaDoInstrumento } from '@/lib/aparencia'
 import { VELOCIDADE_MAX, VELOCIDADE_MIN, type Musica } from '@/lib/types'
@@ -357,25 +358,35 @@ export function VisualizadorPdf({
   }
 
   return (
-    <div className={cn('flex h-dvh flex-col bg-background', telaCheia && 'bg-black')}>
+    <div className={cn('relative flex h-dvh flex-col bg-background', telaCheia && 'bg-black')}>
+      {/* luz de palco no topo */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 luz-de-palco opacity-60"
+      />
+
       {/* Barra superior */}
-      <div className="flex items-center gap-2 border-b border-border bg-card/80 px-2 py-2 pt-safe backdrop-blur sm:px-4">
+      <div className="relative flex items-center gap-2 border-b border-border bg-card/80 px-2 py-2 pt-safe backdrop-blur sm:px-4">
         <Button asChild variant="ghost" size="icon" aria-label="Voltar ao catálogo">
           <Link href="/">
             <ArrowLeft className="size-5" />
           </Link>
         </Button>
 
-        <span
-          className={cn(
-            'grid size-9 shrink-0 place-items-center rounded-xl',
-            aparenciaInstrumento.corFundo,
-            aparenciaInstrumento.cor,
-          )}
-          aria-hidden
-        >
-          <IconeInstrumento className="size-4" />
-        </span>
+        {musica.grupo ? (
+          <CapaSetList nome={musica.grupo} tamanho="sm" className="shadow-md" />
+        ) : (
+          <span
+            className={cn(
+              'grid size-9 shrink-0 place-items-center rounded-xl',
+              aparenciaInstrumento.corFundo,
+              aparenciaInstrumento.cor,
+            )}
+            aria-hidden
+          >
+            <IconeInstrumento className="size-4" />
+          </span>
+        )}
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold leading-tight sm:text-base">
@@ -523,7 +534,7 @@ export function VisualizadorPdf({
                   <Page
                     pageNumber={n}
                     width={larguraPagina || undefined}
-                    className="overflow-hidden rounded-sm shadow-lg"
+                    className="entrada-partitura overflow-hidden rounded-md shadow-2xl shadow-black/30 ring-1 ring-black/10"
                     loading={
                       <div className="grid aspect-[1/1.414] w-full place-items-center bg-white/90 text-zinc-500">
                         <div className="size-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />

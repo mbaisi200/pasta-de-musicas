@@ -26,6 +26,7 @@ import {
   ArrowUp,
   GripVertical,
   ListMusic,
+  Music4,
   Loader2,
   Pencil,
   Play,
@@ -49,17 +50,14 @@ import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { FormMusica, type ValoresFormulario } from './form-musica'
 import { aparenciaDoInstrumento } from '@/lib/aparencia'
-import { PainelUsuarios } from './painel-usuarios'
 import type { Musica } from '@/lib/types'
 import { cn, normalizar } from '@/lib/utils'
 
 interface ManutencaoProps {
   musicas: Musica[]
-  /** Usuário logado — usado para exibir o painel de usuários (admin). */
-  usuario: { uid: string; email: string; nome: string; admin: boolean }
 }
 
-export function Manutencao({ musicas, usuario }: ManutencaoProps) {
+export function Manutencao({ musicas }: ManutencaoProps) {
   const router = useRouter()
   const [busca, setBusca] = React.useState('')
   const [editando, setEditando] = React.useState<Musica | null | undefined>(undefined)
@@ -254,7 +252,10 @@ export function Manutencao({ musicas, usuario }: ManutencaoProps) {
     <div className="mx-auto w-full max-w-5xl px-3 pb-24 pt-4 sm:px-6 sm:pt-6">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Manutenção</h1>
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
+            <Music4 className="size-5 text-primary" />
+            Manutenção
+          </h1>
           <p className="text-sm text-muted-foreground">
             {lista.length} {lista.length === 1 ? 'música' : 'músicas'} ·{' '}
             {totalArquivos} com partitura
@@ -264,10 +265,6 @@ export function Manutencao({ musicas, usuario }: ManutencaoProps) {
           <Plus className="size-4" />
           Nova música
         </Button>
-      </div>
-
-      <div className="mb-4 space-y-4">
-        <PainelUsuarios admin={usuario.admin} uidAtual={usuario.uid} />
       </div>
 
       <div className="relative mb-4">
@@ -282,11 +279,12 @@ export function Manutencao({ musicas, usuario }: ManutencaoProps) {
       </div>
 
       {grupos.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center">
-          <span className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
-            <ListMusic className="size-6" />
+        <div className="relative flex flex-col items-center gap-3 overflow-hidden rounded-xl border border-dashed border-border px-6 py-14 text-center">
+          <span className="pointer-events-none absolute inset-0 pentagrama opacity-50" />
+          <span className="relative grid size-14 place-items-center rounded-full bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
+            <ListMusic className="size-7" />
           </span>
-          <div>
+          <div className="relative">
             <p className="font-medium">
               {lista.length === 0 ? 'Nenhuma música cadastrada' : 'Nada encontrado'}
             </p>
@@ -297,7 +295,7 @@ export function Manutencao({ musicas, usuario }: ManutencaoProps) {
             </p>
           </div>
           {lista.length === 0 && (
-            <Button onClick={() => setEditando(null)}>
+            <Button className="relative" onClick={() => setEditando(null)}>
               <Plus className="size-4" />
               Cadastrar música
             </Button>
@@ -315,9 +313,13 @@ export function Manutencao({ musicas, usuario }: ManutencaoProps) {
               const completo = itensDoGrupo(nome)
               return (
                 <section key={nome} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold uppercase tracking-wide">{nome}</h2>
-                    <Badge variant="muted">{itens.length}</Badge>
+                  <div className="relative flex items-center gap-2 overflow-hidden rounded-lg border border-border/60 bg-muted/25 px-2.5 py-1.5">
+                    <span className="pointer-events-none absolute inset-0 pentagrama opacity-70" />
+                    <Music4 className="relative size-4 text-primary" />
+                    <h2 className="relative text-sm font-semibold uppercase tracking-wide">{nome}</h2>
+                    <Badge variant="muted" className="relative">
+                      {itens.length}
+                    </Badge>
                   </div>
                   <SortableContext
                     items={itens.map((m) => m.id)}

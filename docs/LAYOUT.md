@@ -5,6 +5,76 @@ qualquer mudança futura mantenha o mesmo comportamento nos três formatos.
 
 ---
 
+## 0. Identidade visual — "Sala de Concerto"
+
+O app foi pensado como a **banda no palco**: veludo escuro, instrumentos de
+latão e papel de marfim.
+
+| Token | Escuro | Claro | Uso |
+| --- | --- | --- | --- |
+| `--primary` (latão) | `oklch(0.79 0.125 82)` | `oklch(0.48 0.115 42)` | botões, seleção, destaque |
+| `--brass` / `--brass-claro` | dourado | — | texto em gradiente (`.texto-latao`) |
+| `--veludo` | `oklch(0.32 0.055 345)` | — | brilho quente de fundo |
+| `--marfim` | `oklch(0.95 0.012 85)` | — | texto claro |
+| `--linha-pentagrama` | latão a 14% | a 16% | motivo de partitura |
+
+### Camadas visuais (a partir da versão "moderna")
+
+| Camada | O que é |
+| --- | --- |
+| `.aurora` | dois brilhos enormes que se movem devagar atrás de tudo (luz de palco) |
+| `.grao` | textura de ruído suave (tira o aspecto "chapado" do degradê) |
+| `.vidro` / `.vidro-forte` | superfícies translúcidas com blur (glassmorphism) |
+| `.borda-gradiente` | borda em degradê que acende no hover |
+| `.brilho` | varredura de luz no botão primário ao passar o mouse |
+| `.sombra-latao` | sombra colorida (latão) no cartão de destaque |
+
+**Capas procedurais** (`src/components/capa/capa-setlist.tsx`): cada SetList
+ganha uma "capa" gerada por hash do nome — sempre a mesma arte para o mesmo
+repertório (4 padrões musicais × 8 paletas × iniciais). Aparecem no cabeçalho
+de cada SetList no catálogo e na barra superior do player.
+
+**Motivos e efeitos** (`src/app/globals.css`):
+
+| Classe | O que faz |
+| --- | --- |
+| `.pentagrama` | cinco linhas como as de uma partitura (fundo decorativo) |
+| `.luz-de-palco` | luz quente vinda de cima, como refletor de palco |
+| `.texto-latao` | texto com gradiente de latão |
+| `.fio-de-luz` | linha de luz sob o cabeçalho |
+| `.cartao-vivo` | cartão que sobe e acende a borda ao passar o mouse |
+| `.entrada-partitura` | a partitura entra com leve zoom |
+
+### Iconografia musical — desenhada para este app
+
+Os ícones não vêm de biblioteca: estão em
+`src/components/icones/musicais.tsx`, desenhados no grid 24×24 com o mesmo
+peso de traço (1,7) do resto da interface.
+
+| Ícone | Uso |
+| --- | --- |
+| `PastaDeMusicas` | logo do app (pasta com nota) |
+| `ClaveDeSol` / `ClaveDeFa` | símbolos de clave |
+| `Seminima` / `Colcheias` | notas (contadores, navegação) |
+| `Pentagrama` | partitura (contador "com partitura") |
+| `Teclado` | teclado (teclas brancas + pretas no padrão 2‑3) |
+| `Trumpete` | trompete com campana e pistões |
+| `Baixo` | baixo elétrico (braço + captadores) |
+| `Violao` | violão (corpo + braço + boca) |
+| `Bateria` | caixa com aros + baquetas cruzadas |
+| `Sax` / `Flauta` | sopros |
+| `Microfone` | voz |
+| `Cifra` | diagrama de acorde (grade com pontos) |
+| `Letra` | folha com versos |
+| `Songbook` | real book / songbook |
+| `Metronomo` / `Afinador` / `Vinil` / `Audio` | ferramentas e mídia |
+
+Cada tipo de partitura ganha ícone + cor (`src/lib/aparencia.ts`), e cada
+SetList recebe uma capa gerada com clave d'água musical e cor estável
+(`corDoGrupo`).
+
+---
+
 ## 1. Os três formatos e os breakpoints
 
 | Formato | Largura | Breakpoint Tailwind | O que aparece |
@@ -67,6 +137,8 @@ em duas linhas, "Sérgio Bitencourt" virava três. A tabela passou a ser
 - Ícone do instrumento à esquerda de cada linha, como no catálogo.
 - Arrastar para reordenar (dnd-kit) no desktop; **↑ ↓** em todas as telas
   (é o caminho real no celular, onde arrastar é impreciso).
+- Sem painel de usuários aqui: a administração de contas fica no fim da
+  tela **Ajuda** (seção "Administração"), visível só para o administrador.
 
 ### 2.4 Ajuda (`/ajuda`)
 

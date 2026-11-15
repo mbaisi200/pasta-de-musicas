@@ -92,7 +92,18 @@ Pronto — o app já está no ar (ex.: `https://pasta-de-musicas-ivan.vercel.app
 
 ```bash
 npm run typecheck && npm run lint && npm run build
+npm start        # sobe o .next/standalone
 ```
+
+> ⚠️ **Variáveis de ambiente no build local:** o servidor *standalone* muda o
+> diretório de trabalho e **não encontra o `.env.local`** sozinho. Por isso o
+> `scripts/start.mjs` carrega o `.env.local` no ambiente do processo. Se você
+> subir o `server.js` na mão, exporte as variáveis antes:
+>
+> ```bash
+> set -a; source .env.local; set +a
+> node .next/standalone/server.js
+> ```
 
 ---
 
@@ -239,6 +250,13 @@ com aspas e com `\n` literais.
 **A partitura não abre (erro de PDF)**
 O arquivo não chegou ao Firestore. Rode de novo `npm run import:vfp` e confira em
 *Firebase Console → Firestore → musicas → vfp-001 → partitura → atual*.
+
+**O login funciona mas o app fica vazio**
+Sintoma clássico de cookie `Secure` em HTTP: o navegador guarda o cookie mas
+não o envia de volta. O flag `secure` do cookie de sessão segue o **protocolo
+real** da requisição (`x-forwarded-proto`), então em `http://localhost` ele
+funciona e em HTTPS (Vercel) continua protegido. Se você implantou com HTTPS e
+o problema persiste, veja "Domínio não autorizado" acima.
 
 **A rolagem automática não funciona no iPhone**
 O iOS exige que o `AudioContext`/movimento partam de um toque do usuário —

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileUp, Loader2, Paperclip, Trash2 } from 'lucide-react'
+import { FileSearch, FileUp, Loader2, Paperclip, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { analisarPartituraNoNavegador } from '@/lib/pdf/analisar-cliente'
 import { VELOCIDADE_MAX, VELOCIDADE_MIN, TAMANHO_MAXIMO_PDF, type Musica } from '@/lib/types'
 import { formatarBytes } from '@/lib/utils'
 
@@ -58,10 +59,53 @@ export function FormMusica({
   const [valores, setValores] = React.useState<ValoresFormulario>(() => valoresIniciais(musica))
   const [arquivo, setArquivo] = React.useState<File | null>(null)
   const [salvando, setSalvando] = React.useState(false)
+  const [analisando, setAnalisando] = React.useState(false)
+  const [analise, setAnalise] = React.useState<{
+    titulo: string
+    autor: string
+    instrumento: string
+    estilo: string
+    paginas: number
+  } | null>(null)
   const inputArquivo = React.useRef<HTMLInputElement>(null)
 
   function alterar<C extends keyof ValoresFormulario>(campo: C, valor: ValoresFormulario[C]) {
     setValores((v) => ({ ...v, [campo]: valor }))
+  }
+
+  /** Lê o PDF no navegador e sugere os campos (só preenche os vazios). */
+  async function analisar(arquivo: File) {
+    setAnalisando(true)
+    try {
+      const resultado = await analisarPartituraNoNavegador(arquivo)
+      setAnalise(resultado)
+
+      const sugestoes = [
+        ['musica', resultado.titulo],
+        ['autor', resultado.autor],
+        ['instrumento', resultado.instrumento],
+        ['estilo', resultado.estilo],
+      ].filter(([, valor]) => Boolean(valor)) as [keyof ValoresFormulario, string][]
+
+      if (sugestoes.length === 0) {
+        toast.info('Não consegui ler o texto deste PDF — preencha os campos à mão.')
+        return
+      }
+
+      setValores((atuais) => {
+        const copia: ValoresFormulario = { ...atuais }
+        for (const [campo, valor] of sugestoes) {
+          if (!copia[campo]) copia[campo] = valor as never
+        }
+        return copia
+      })
+
+      toast.success('Partitura analisada — confira os campos.')
+    } catch {
+      toast.error('Não foi possível analisar este PDF.')
+    } finally {
+      setAnalisando(false)
+    }
   }
 
   async function enviar(e: React.FormEvent) {
@@ -215,7 +259,12 @@ export function FormMusica({
           type="file"
           accept="application/pdf,.pdf"
           className="hidden"
-          onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            const escolhido = e.target.files?.[0] ?? null
+            setArquivo(escolhido)
+            setAnalise(null)
+            if (escolhido) void analisar(escolhido)
+          }}
         />
         <Button
           type="button"
@@ -224,9 +273,59 @@ export function FormMusica({
           className="w-full"
           onClick={() => inputArquivo.current?.click()}
         >
-          <FileUp className="size-4" />
+          {analisando ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <FileUp className="size-4" />
+          )}
           {arquivo || musica?.arquivo ? 'Trocar PDF' : 'Enviar PDF'}
         </Button>
+
+        {analisando && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <FileSearch className="size-3.5 animate-pulse" />
+            Lendo a partitura…
+          </p>
+        )}
+
+        {analise && !analisando && (
+          <div className="rounded-lg border border-primary/30 bg-primary/[0.07] p-2.5">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-primary">
+              <Sparkles className="size-3.5" />
+              Partitura analisada
+              {analise.paginas > 0 && ` · ${analise.paginas} página(s)`}
+            </p>
+            <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
+              {analise.titulo && (
+                <>
+                  <dt className="text-muted-foreground">Nome</dt>
+                  <dd className="truncate font-medium">{analise.titulo}</dd>
+                </>
+              )}
+              {analise.autor && (
+                <>
+                  <dt className="text-muted-foreground">Autor</dt>
+                  <dd className="truncate font-medium">{analise.autor}</dd>
+                </>
+              )}
+              {analise.instrumento && (
+                <>
+                  <dt className="text-muted-foreground">Instrumento</dt>
+                  <dd className="truncate font-medium">{analise.instrumento}</dd>
+                </>
+              )}
+              {analise.estilo && (
+                <>
+                  <dt className="text-muted-foreground">Estilo</dt>
+                  <dd className="truncate font-medium">{analise.estilo}</dd>
+                </>
+              )}
+            </dl>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Os campos vazios foram preenchidos — ajuste o que quiser.
+            </p>
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">
           PDF de até {Math.round(TAMANHO_MAXIMO_PDF / 1024)} KB (o limite vem do Firestore, que
           aceita 1 MB por documento).

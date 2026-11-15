@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function PaginaAjuda() {
-  await exigirUsuario()
+  const usuario = await exigirUsuario()
 
   const configuracoes = await getRepositorio().lerConfiguracoes()
-  return <AjudaConteudo configuracoes={configuracoes} />
+  return <AjudaConteudo configuracoes={configuracoes} usuario={usuario} />
 }

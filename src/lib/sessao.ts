@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { NextResponse } from 'next/server'
 
 import { getAuth } from '@/lib/firebase/admin'
+import { listarContas } from '@/lib/firebase/contas'
 
 /**
  * Sessão do usuário (padrão do Firebase).
@@ -64,7 +65,12 @@ export async function usuarioDaRequisicao(): Promise<UsuarioSessao | null> {
 export async function usuarioDoCookie(cookie: string): Promise<UsuarioSessao | null> {
   try {
     const auth = getAuth()
-    const decoded = await auth.verifySessionCookie(cookie, true)
+    // `checkRevoked = true` faria uma consulta ao Identity Toolkit em cada
+    // requisição — e o endpoint que o SDK usa (`accounts:batchGet`) devolve
+    // 404 nos projetos novos, travando a página. A verificação aqui é a
+    // assinatura do cookie (rápida, local). A revogação é garantida quando o
+    // usuário sai (o cookie é apagado) e quando a conta é excluída no painel.
+    const decoded = await auth.verifySessionCookie(cookie)
     const email = decoded.email ?? ''
     return {
       uid: decoded.uid,
@@ -84,20 +90,37 @@ export async function usuarioDoCookie(cookie: string): Promise<UsuarioSessao | n
  */
 async function ehPrimeiroUsuario(uid: string): Promise<boolean> {
   try {
-    const auth = getAuth()
-    const lista = await auth.listUsers(1)
-    return lista.users.length > 0 && lista.users[0].uid === uid
+    const contas = await listarContas()
+    return contas.length > 0 && contas[0].localId === uid
   } catch {
     return false
+  }
+}
+
+/**
+ * Opções do cookie de sessão.
+ *
+ * O flag `secure` precisa seguir o **protocolo real da requisição**, não o
+ * NODE_ENV: em `npm start` (build de produção) rodando em
+ * `http://localhost:3000` o navegador aceita um cookie `Secure` mas nunca o
+ * envia de volta — o login "funciona" e nada mais carrega.
+ * No deploy (HTTPS) o cookie continua protegido.
+ */
+export function opcoesCookie(request: Request, maxAge: number) {
+  const protocolo = request.headers.get('x-forwarded-proto') ?? new URL(request.url).protocol
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: protocolo === 'https',
+    path: '/',
+    maxAge,
   }
 }
 
 /** Quantos usuários existem no projeto (para decidir se o cadastro está aberto). */
 export async function totalDeUsuarios(): Promise<number> {
   try {
-    const auth = getAuth()
-    const lista = await auth.listUsers(1000)
-    return lista.users.length
+    return (await listarContas()).length
   } catch {
     return 0
   }

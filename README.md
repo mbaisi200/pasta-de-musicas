@@ -16,13 +16,19 @@ Mesma ideia, mesmas telas — adapted para celular, tablet e navegador, rodando 
 
 ## 1. O que o app faz
 
-- **Catálogo** com busca por qualquer campo (nome, autor, estilo, SetList, instrumento, observação) e filtros combináveis.
+- **Catálogo** com busca (inclusive por voz), filtros combináveis, estatísticas
+  do repertório e **capa gerada para cada SetList** — o mesmo repertório tem
+  sempre a mesma arte, o que dá identidade visual ao app.
 - **SetList (repertório)** agrupa as músicas; a ordem dentro do grupo define a sequência da execução — o player navega de uma para a outra sem parar.
 - **Player de partitura** em PDF com:
   - rolagem automática (velocidade 0–9, igual ao VFP) com wake lock (tela não apaga),
   - navegação por página, zoom, tela cheia, atalhos de teclado e *swipe* no celular,
   - retomada da posição de cada música no dispositivo.
 - **Manutenção**: cadastrar, alterar, excluir, reordenar (arrastar ou botões ↑ ↓) e enviar o PDF da partitura.
+- **Carregar PDF e analisar**: ao escolher a partitura, o app lê o PDF no
+  navegador e **preenche sozinho** nome da música, autor e instrumento
+  (detecta "Teclado", "Trumpete", "Baixo" escritos na própria partitura),
+  além do número de páginas.
 - **Ajuda**: texto de ajuda, contato, seleção de equipamento e as ferramentas **Afinador** e **Metrônomo**.
 - **PWA**: instalável na tela de início do Android/iOS, com modo offline para as partituras já tocadas.
 

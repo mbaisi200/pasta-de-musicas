@@ -3,9 +3,9 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AlertCircle, Eye, EyeOff, Loader2, ListMusic, Lock, Mail, User } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, Loader2, ListMusic, Lock, Mail, Music4, User } from 'lucide-react'
 
-import { authNaoConfigurado, useAuth } from '@/components/auth/provedor-auth'
+import { useAuth } from '@/components/auth/provedor-auth'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -25,19 +25,29 @@ export default function PaginaEntrar() {
   const [erro, setErro] = React.useState('')
   const [processando, setProcessando] = React.useState(false)
   const [cadastroAberto, setCadastroAberto] = React.useState<boolean | null>(null)
+  const [autenticacaoAtiva, setAutenticacaoAtiva] = React.useState<boolean | null>(null)
 
-  const proximo = parametros.get('proximo') || '/'
+  const proximo = parametros?.get('proximo') || '/'
+  console.log('[entrar] proximo =', JSON.stringify(proximo), '| parametros =', parametros === null ? 'null' : 'ok')
 
   React.useEffect(() => {
     if (usuario) router.replace(proximo)
   }, [usuario, router, proximo])
 
-  // O cadastro só fica aberto enquanto não existir nenhum usuário.
+
+  // Estado do Authentication no servidor: o cadastro só fica aberto enquanto
+  // não existir nenhum usuário, e só funciona se o Authentication estiver ativo.
   React.useEffect(() => {
     fetch('/api/sessao/registro', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((d) => setCadastroAberto(d.total === 0))
-      .catch(() => setCadastroAberto(false))
+      .then((d) => {
+        setCadastroAberto(d.total === 0)
+        setAutenticacaoAtiva(d.autenticacaoAtiva !== false)
+      })
+      .catch(() => {
+        setCadastroAberto(false)
+        setAutenticacaoAtiva(false)
+      })
   }, [])
 
   async function aoEntrar(evento: React.FormEvent) {
@@ -45,8 +55,10 @@ export default function PaginaEntrar() {
     setErro('')
     setProcessando(true)
     try {
+      // A navegação é feita pelo efeito abaixo, quando `usuario` é preenchido.
+      // Navegar aqui também causaria duas transições concorrentes (a segunda
+      // cancela a primeira e a tela não sai do /entrar).
       await entrar(email.trim(), senha)
-      router.replace(proximo)
     } catch (e) {
       setErro(mensagemDeErro(e))
     } finally {
@@ -60,7 +72,6 @@ export default function PaginaEntrar() {
     setProcessando(true)
     try {
       await registrar(email.trim(), senha, nome.trim())
-      router.replace(proximo)
     } catch (e) {
       setErro(mensagemDeErro(e))
     } finally {
@@ -70,42 +81,50 @@ export default function PaginaEntrar() {
 
   return (
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-10">
-      {/* fundo decorativo */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle at 20% 10%, var(--primary) 0, transparent 45%), radial-gradient(circle at 85% 90%, var(--primary) 0, transparent 40%)',
-        }}
-      />
+      {/* palco: luz quente vinda de cima + motivo de partitura */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 luz-de-palco opacity-70" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 pentagrama opacity-60" />
 
       <div className="relative w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
+          <span className="relative grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
             <ListMusic className="size-7" />
+            <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/25" />
           </span>
-          <h1 className="mt-3 text-xl font-semibold tracking-tight">Pasta de Músicas</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="mt-3 text-xl font-semibold tracking-tight">
+            Pasta de <span className="texto-latao">Músicas</span>
+          </h1>
+          <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+            <Music4 className="size-3.5 text-primary" />
             Entre para acessar seu repertório
           </p>
         </div>
 
-        <Card className="p-5 shadow-lg sm:p-6">
-          {authNaoConfigurado() ? (
+        <Card className="sombra-painel border-primary/20 p-5 sm:p-6">
+          {autenticacaoAtiva === false ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <AlertCircle className="size-8 text-destructive" />
               <div>
-                <p className="font-medium">Login não configurado</p>
+                <p className="font-medium">Login ainda não liberado</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Faltam as variáveis do Firebase Web SDK no ambiente.
+                  O Authentication ainda não foi ativado neste projeto do Firebase.
                 </p>
               </div>
-              <code className="w-full overflow-x-auto rounded-md bg-muted p-2 text-left text-xs">
-                NEXT_PUBLIC_FIREBASE_API_KEY=…
-                <br />
-                NEXT_PUBLIC_FIREBASE_APP_ID=…
-              </code>
+              <ol className="w-full space-y-1 rounded-md bg-muted p-3 text-left text-xs text-muted-foreground">
+                <li>
+                  <strong className="text-foreground">1.</strong> Firebase Console →{' '}
+                  <strong className="text-foreground">Authentication</strong> →{' '}
+                  <strong className="text-foreground">Começar</strong>
+                </li>
+                <li>
+                  <strong className="text-foreground">2.</strong> Aba{' '}
+                  <strong className="text-foreground">Sign-in method</strong> →{' '}
+                  <strong className="text-foreground">E-mail/Senha</strong> → Habilitar
+                </li>
+                <li>
+                  <strong className="text-foreground">3.</strong> Recarregue esta página
+                </li>
+              </ol>
             </div>
           ) : (
             <Tabs defaultValue="entrar">

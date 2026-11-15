@@ -12,10 +12,27 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore'
  *
  * Não usamos o Cloud Storage: desde 03/02/2026 ele exige o plano pago (Blaze).
  * Os PDFs das partituras ficam dentro do Firestore (base64), em subdocumento.
+ *
+ * ⚠️ As instâncias ficam no `globalThis` de propósito: o bundler do Next pode
+ * duplicar este módulo (um chunk para as páginas, outro para as rotas de API)
+ * e, sem o cache global, o Firestore seria inicializado duas vezes — o que
+ * quebra com "Firestore has already been initialized" na segunda vez.
  */
 
+const GLOBAL = globalThis as typeof globalThis & {
+  __firebaseAdminApp?: App
+  __firebaseAdminDb?: Firestore
+  __firebaseAdminAuth?: Auth
+}
+
 function pegarApp(): App {
-  if (getApps().length > 0) return getApps()[0]
+  if (GLOBAL.__firebaseAdminApp) return GLOBAL.__firebaseAdminApp
+
+  const existentes = getApps()
+  if (existentes.length > 0) {
+    GLOBAL.__firebaseAdminApp = existentes[0]
+    return existentes[0]
+  }
 
   const projectId = process.env.FIREBASE_PROJECT_ID
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
@@ -27,26 +44,31 @@ function pegarApp(): App {
     )
   }
 
-  return initializeApp({
+  const app = initializeApp({
     credential: cert({ projectId, clientEmail, privateKey }),
   })
+  GLOBAL.__firebaseAdminApp = app
+  return app
 }
 
-let db: Firestore | null = null
-let auth: Auth | null = null
-
 export function getDb(): Firestore {
-  if (!db) {
-    db = getFirestore(pegarApp())
+  if (GLOBAL.__firebaseAdminDb) return GLOBAL.__firebaseAdminDb
+
+  const db = getFirestore(pegarApp())
+  try {
     db.settings({ ignoreUndefinedProperties: true })
+  } catch {
+    // Já inicializado por outra instância do módulo — segue em frente.
   }
+  GLOBAL.__firebaseAdminDb = db
   return db
 }
 
 /** Firebase Authentication (login/senha) — usado no servidor. */
 export function getAuth(): Auth {
-  if (!auth) auth = getAuthAdmin(pegarApp())
-  return auth
+  if (GLOBAL.__firebaseAdminAuth) return GLOBAL.__firebaseAdminAuth
+  GLOBAL.__firebaseAdminAuth = getAuthAdmin(pegarApp())
+  return GLOBAL.__firebaseAdminAuth
 }
 
 /** Verdadeiro quando o Firebase está configurado no ambiente. */

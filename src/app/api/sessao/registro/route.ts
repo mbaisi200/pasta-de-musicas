@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { getAuth } from '@/lib/firebase/admin'
-import { totalDeUsuarios } from '@/lib/sessao'
+import { criarConta, totalDeContas } from '@/lib/firebase/contas'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -33,7 +32,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: 'A senha precisa ter ao menos 6 caracteres.' }, { status: 422 })
   }
 
-  const total = await totalDeUsuarios()
+  let total = 0
+  try {
+    total = await totalDeContas()
+  } catch {
+    return NextResponse.json(
+      {
+        erro:
+          'O Authentication não está habilitado neste projeto. Ative em ' +
+          'Firebase Console → Authentication → Começar → E-mail/Senha.',
+      },
+      { status: 503 },
+    )
+  }
+
   if (total > 0) {
     return NextResponse.json(
       { erro: 'O cadastro está fechado. Peça a um administrador para criar sua conta.' },
@@ -42,22 +54,26 @@ export async function POST(request: Request) {
   }
 
   try {
-    const usuario = await getAuth().createUser({
-      email,
-      password: senha,
-      displayName: nome || undefined,
-    })
-    return NextResponse.json({ uid: usuario.uid, email: usuario.email }, { status: 201 })
+    const conta = await criarConta(email, senha, nome)
+    return NextResponse.json({ uid: conta.localId, email: conta.email }, { status: 201 })
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : 'Falha ao criar a conta.'
-    const amigavel = /already exists/i.test(mensagem)
+    const amigavel = /EMAIL_EXISTS/i.test(mensagem)
       ? 'Já existe uma conta com esse e-mail.'
-      : mensagem
+      : /CONFIGURATION_NOT_FOUND/i.test(mensagem)
+        ? 'O Authentication ainda não foi ativado neste projeto do Firebase.'
+        : /WEAK_PASSWORD|PASSWORD_POLICY/i.test(mensagem)
+          ? 'Senha fraca demais. Use ao menos 6 caracteres.'
+          : mensagem
     return NextResponse.json({ erro: amigavel }, { status: 400 })
   }
 }
 
 /** Quantas contas existem — o front usa isso para mostrar ou esconder o cadastro. */
 export async function GET() {
-  return NextResponse.json({ total: await totalDeUsuarios() })
+  try {
+    return NextResponse.json({ total: await totalDeContas() })
+  } catch {
+    return NextResponse.json({ total: 0, autenticacaoAtiva: false })
+  }
 }

@@ -10,26 +10,27 @@ contas.
 ```
 Navegador                          Servidor (Next.js)              Firebase
      │                                   │                           │
-     │  1. login (e-mail + senha) ──────►│                           │
-     │     via Firebase Web SDK ─────────────────────────────────────► │
+     │  1. POST /api/sessao ───────────►│                           │
+     │     { email, senha }              │ 2. valida a senha no ────►│
+     │                                   │    Identity Toolkit ──────►│
+     │  ◄── session cookie (httpOnly) ───┤ 3. cria o cookie ─────────┤
      │                                   │                           │
-     │  ◄── ID token ─────────────────────────────────────────────────┘
-     │
-     │  2. POST /api/sessao { idToken } ─►│
-     │                                   │ valida o token
-     │  ◄── session cookie (httpOnly) ───┤
-     │
-     │  3. navega: toda requisição leva o cookie
+     │  4. navega: toda requisição leva o cookie
      │                                   │ verifySessionCookie()
      │                                   │ ────────────────────────► Firestore
 ```
+
+**O login acontece no servidor** (Identity Toolkit admin), com o token da
+Service Account. Isso significa que **a `apiKey` do Web SDK não é necessária**
+para entrar no app — e que o navegador nunca vê a senha.
 
 Pontos importantes:
 
 - **O cookie é httpOnly**: o JavaScript da página não consegue lê-lo, então
   um XSS não consegue roubar a sessão.
-- **A senha nunca passa pelo nosso servidor**: ela vai direto do navegador
-  para o Firebase Auth. O servidor só vê tokens.
+- **A senha vai do navegador para o nosso servidor e dele para o Firebase** —
+  o servidor valida e devolve apenas um **ID token**, que vira o cookie de
+  sessão. A senha nunca é gravada aqui.
 - **A session cookie dura 5 dias** e é revogável (`verifySessionCookie(..., true)`
   checa revogação a cada uso).
 - **O Firestore continua `deny all` para o cliente**: mesmo com o SDK Web no
@@ -60,29 +61,27 @@ ADMIN_EMAILS=ivan@email.com,maria@email.com
 
 ### 3.1 Ligar o Authentication
 
-1. Menu lateral → **Authentication** (ou "Autenticação")
+1. Menu lateral → **Segurança** → **Authentication**
+   (link direto: `https://console.firebase.google.com/project/<PROJECT_ID>/authentication/providers`)
 2. **Começar** (Get started)
-3. Aba **"Sign-in method"** (Método de login) → **E-mail/Senha** (Email/Password)
-4. **Habilitar** (Enable) → **Salvar**
+3. Aba **"Método de login"** → **E-mail/Senha** → **Habilitar** → **Salvar**
 
-### 3.2 Pegar a configuração do Web SDK
+> Sem isso o projeto responde `CONFIGURATION_NOT_FOUND` e nenhuma conta pode ser
+> criada. Diagnóstico rápido:
+>
+> ```bash
+> npm run criar:usuario -- --status
+> ```
+
+### 3.2 (Opcional) Configuração do Web SDK
+
+**Não é necessária para o login funcionar** — o login é feito pelo servidor.
+Só vale a pena para recursos que dependem do SDK no navegador (recuperação de
+senha por e-mail, verificação de e-mail, login social no futuro).
 
 1. **Configurações do projeto** (⚙️) → **Seus apps** (Your apps)
 2. Ícone **Web (`</>`)** → apelido "Pasta de Músicas" → **Registrar aplicativo**
-3. Copie o objeto `firebaseConfig`:
-
-```js
-const firebaseConfig = {
-  apiKey: "AIza...",
-  authDomain: "pasta-de-musicas-ivan.firebaseapp.com",
-  projectId: "pasta-de-musicas-ivan",
-  storageBucket: "pasta-de-musicas-ivan.firebasestorage.app",
-  messagingSenderId: "110623...",
-  appId: "1:110623...:web:abc..."
-};
-```
-
-4. Grave no `.env.local` (o script faz isso):
+3. Copie o objeto `firebaseConfig` e grave no `.env.local`:
 
 ```bash
 node scripts/configurar-web.mjs      # cole o JSON e pressione Ctrl+D
@@ -100,7 +99,9 @@ localhost mas pode ser bloqueado no domínio publicado.
 
 | Arquivo | Papel |
 | --- | --- |
-| `src/lib/firebase/client.ts` | Web SDK (só login) |
+| `src/lib/firebase/contas.ts` | criar conta, autenticar, listar e apagar (Identity Toolkit admin) |
+| `src/lib/firebase/token.ts` / `contas.ts` | token OAuth da Service Account (JWT RS256) |
+| `src/lib/firebase/client.ts` | Web SDK — **opcional** (só para recursos de navegador) |
 | `src/lib/sessao.ts` | session cookie, papéis, `exigirUsuario()` / `exigirSessaoApi()` |
 | `src/proxy.ts` | redireciona para `/entrar` quando não há cookie |
 | `src/app/entrar/page.tsx` | tela de login e cadastro |
@@ -109,7 +110,7 @@ localhost mas pode ser bloqueado no domínio publicado.
 | `src/app/api/sessao/usuario/route.ts` | dados do usuário da sessão |
 | `src/app/api/usuarios/route.ts` | lista/cria/exclui contas (admin) |
 | `src/components/auth/provedor-auth.tsx` | estado do usuário no navegador |
-| `src/components/manutencao/painel-usuarios.tsx` | painel de contas (admin) |
+| `src/components/manutencao/painel-usuarios.tsx` | painel de contas (admin, exibido em Ajuda) |
 
 ---
 
@@ -125,7 +126,24 @@ localhost mas pode ser bloqueado no domínio publicado.
 
 ## 6. Criar a conta do primeiro usuário
 
+**Opção A — pela tela (recomendado):**
+
 1. Rode o app (`npm run dev`) e abra `http://localhost:3000/entrar`
 2. Na aba **"Criar conta"**, cadastre e-mail, nome e senha (mínimo 6)
 3. Esse usuário vira o administrador
-4. Vá em **Manutenção → Usuários → Gerenciar** para criar as demais contas
+4. Vá em **Ajuda → Administração → Usuários → Gerenciar** para criar as
+   demais contas (a seção só aparece para o administrador)
+
+**Opção B — pelo terminal:**
+
+```bash
+npm run criar:usuario -- --email=ivan@email.com --senha="sua-senha" --nome="Ivan"
+npm run criar:usuario -- --status      # diagnóstico do projeto
+```
+
+O script usa o endpoint administrativo do Identity Toolkit e também serve para
+**redefinir a senha** de quem já existe.
+
+> ⚠️ Detalhe do console novo: o endpoint `accounts:batchGet` devolve **404**
+> (só `accounts:query` funciona) — foi por isso que o diagnóstico dava falso
+> negativo.

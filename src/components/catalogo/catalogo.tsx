@@ -32,6 +32,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 import { ContinuarDeOndeParou } from '@/components/catalogo/continuar'
+import { CapaSetList } from '@/components/capa/capa-setlist'
+import {
+  PastaDeMusicas,
+  Pentagrama,
+  Seminima,
+  Songbook,
+} from '@/components/icones/musicais'
 import { aparenciaDoInstrumento, corDoGrupo } from '@/lib/aparencia'
 import {
   FILTROS_VAZIOS,
@@ -344,6 +351,31 @@ export function Catalogo({ musicas }: CatalogoProps) {
 
       <ContinuarDeOndeParou musicas={musicas} />
 
+      {/* Herói — números do repertório */}
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <CartaoEstatistica
+          icone={Seminima}
+          valor={String(musicas.length)}
+          rotulo={musicas.length === 1 ? 'música' : 'músicas'}
+          destaque
+        />
+        <CartaoEstatistica
+          icone={Songbook}
+          valor={String(new Set(musicas.map((m) => m.grupo).filter(Boolean)).size)}
+          rotulo="setlists"
+        />
+        <CartaoEstatistica
+          icone={Pentagrama}
+          valor={String(musicas.filter((m) => m.arquivo).length)}
+          rotulo="com partitura"
+        />
+        <CartaoEstatistica
+          icone={PastaDeMusicas}
+          valor={String(new Set(musicas.map((m) => m.estilo).filter(Boolean)).size)}
+          rotulo="estilos"
+        />
+      </section>
+
       <p className="mb-3 text-sm text-muted-foreground">
         {filtradas.length === musicas.length
           ? `${musicas.length} ${musicas.length === 1 ? 'música' : 'músicas'}`
@@ -415,7 +447,7 @@ function ListaMusicas({
       <div className="hidden overflow-hidden rounded-xl border border-border bg-card lg:block">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left">
+            <tr className="relative border-b border-border bg-muted/40 text-left">
               <th className="w-10 px-3 py-2.5" />
               <th className="px-3 py-2.5 font-semibold">Nome da música</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SetList</th>
@@ -499,15 +531,20 @@ function ListaMusicas({
       {/* Cartões — celular (1 coluna) e tablet (2 colunas) */}
       <div className="space-y-6 sm:space-y-8 lg:hidden">
         {grupos.map(([grupo, itens]) => {
-          const cor = corDoGrupo(grupo)
           return (
             <section key={grupo || 'sem-grupo'} className="space-y-2.5">
               {mostrarGrupos && (
-                <div className="flex items-center gap-2">
-                  <Music4 className={cn('size-4', cor.cor)} />
-                  <h2 className="text-sm font-semibold uppercase tracking-wide">{grupo}</h2>
-                  <Badge variant="muted">{itens.length}</Badge>
-                  <span className={cn('h-px flex-1', cor.fundo)} />
+                <div className="relative flex items-center gap-3 overflow-hidden rounded-2xl border border-border/60 bg-card/50 px-3 py-2">
+                  <span className="pointer-events-none absolute inset-0 pentagrama opacity-60" />
+                  <CapaSetList nome={grupo} tamanho="sm" className="relative shadow-md" />
+                  <div className="relative min-w-0">
+                    <h2 className="truncate text-sm font-semibold uppercase tracking-wide">
+                      {grupo}
+                    </h2>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {itens.length === 1 ? '1 música' : `${itens.length} músicas`}
+                    </p>
+                  </div>
                 </div>
               )}
               <ul className="grid gap-2 sm:grid-cols-2 sm:gap-3">
@@ -516,32 +553,46 @@ function ListaMusicas({
                   const Icone = aparencia.icone
                   return (
                     <li key={m.id} className="min-w-0">
-                      <Link href={`/musica/${m.id}`} className="block h-full min-w-0 no-tap-highlight">
-                        <Card className="flex h-full items-center gap-3 p-3 transition-all hover:border-primary/40 hover:bg-accent/30 active:scale-[0.99] sm:p-4">
-                          <span
-                            className={cn(
-                              'grid size-11 shrink-0 place-items-center rounded-xl',
-                              aparencia.corFundo,
-                              aparencia.cor,
-                            )}
-                          >
-                            <Icone className="size-5" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium leading-tight">
-                              {m.musica}
-                            </span>
-                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                              {[m.autor, m.instrumento].filter(Boolean).join(' · ') ||
-                                'Sem autor'}
-                            </span>
-                          </span>
-                          <span
-                            className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors group-hover:text-primary"
-                            aria-hidden
-                          >
-                            <Play className="size-4" />
-                          </span>
+                      <Link
+                        href={`/musica/${m.id}`}
+                        className="group block h-full min-w-0 no-tap-highlight"
+                      >
+                        <Card className="vidro borda-gradiente cartao-vivo h-full overflow-hidden p-0 active:scale-[0.99]">
+                          <div className="flex items-stretch gap-0">
+                            {/* faixa com a cor do instrumento */}
+                            <span
+                              className={cn(
+                                'w-1 shrink-0 transition-all duration-300 group-hover:w-1.5',
+                                aparencia.corFundo,
+                              )}
+                            />
+                            <div className="flex min-w-0 flex-1 items-center gap-3 p-3 sm:p-4">
+                              <span
+                                className={cn(
+                                  'relative grid size-11 shrink-0 place-items-center rounded-xl ring-1 ring-inset ring-current/10 transition-transform duration-300 group-hover:scale-105',
+                                  aparencia.corFundo,
+                                  aparencia.cor,
+                                )}
+                              >
+                                <Icone className="size-5" />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-medium leading-tight">
+                                  {m.musica}
+                                </span>
+                                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                  {[m.autor, m.instrumento].filter(Boolean).join(' · ') ||
+                                    'Sem autor'}
+                                </span>
+                              </span>
+                              <span
+                                className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary opacity-0 transition-all duration-300 group-hover:opacity-100"
+                                aria-hidden
+                              >
+                                <Play className="size-4" />
+                              </span>
+                            </div>
+                          </div>
                         </Card>
                       </Link>
                     </li>
@@ -556,13 +607,54 @@ function ListaMusicas({
   )
 }
 
+function CartaoEstatistica({
+  icone: Icone,
+  valor,
+  rotulo,
+  destaque,
+}: {
+  icone: (props: { className?: string }) => React.ReactElement
+  valor: string
+  rotulo: string
+  destaque?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'vidro borda-gradiente group relative flex items-center gap-3 overflow-hidden rounded-2xl p-4 transition-transform duration-300 hover:-translate-y-0.5',
+        destaque && 'sombra-latao',
+      )}
+    >
+      <span
+        className={cn(
+          'grid size-11 shrink-0 place-items-center rounded-xl transition-colors',
+          destaque
+            ? 'bg-primary/15 text-primary'
+            : 'bg-muted/60 text-muted-foreground group-hover:text-primary',
+        )}
+      >
+        <Icone className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-2xl font-semibold leading-none tabular-nums">{valor}</p>
+        <p className="mt-1 truncate text-xs text-muted-foreground">{rotulo}</p>
+      </div>
+    </div>
+  )
+}
+
 function EstadoVazio({ temMusicas }: { temMusicas: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
-        <FileMusic className="size-6" />
+    <div className="relative flex flex-col items-center gap-3 overflow-hidden rounded-xl border border-dashed border-border px-6 py-14 text-center">
+      <span className="pointer-events-none absolute inset-0 pentagrama opacity-50" />
+      <span className="relative grid size-14 place-items-center rounded-full bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
+        {temMusicas ? (
+          <Music4 className="size-7" />
+        ) : (
+          <FileMusic className="size-7" />
+        )}
       </span>
-      <div>
+      <div className="relative">
         <p className="font-medium">Nenhuma música encontrada</p>
         <p className="mt-1 text-sm text-muted-foreground">
           {temMusicas
@@ -570,7 +662,7 @@ function EstadoVazio({ temMusicas }: { temMusicas: boolean }) {
             : 'Cadastre sua primeira música para começar a tocar.'}
         </p>
       </div>
-      <div className="flex gap-2">
+      <div className="relative flex gap-2">
         {temMusicas ? (
           <Button variant="outline" asChild>
             <Link href="/">Ver todas</Link>

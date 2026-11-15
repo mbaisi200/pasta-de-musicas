@@ -2,12 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  updateProfile,
-} from 'firebase/auth'
+import { signOut as firebaseSignOut } from 'firebase/auth'
 
 import { firebaseConfigurado, getAuthClient } from '@/lib/firebase/client'
 
@@ -61,21 +56,17 @@ export function ProvedorAuth({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  async function trocarPorCookie(user: { getIdToken: () => Promise<string> }) {
-    const idToken = await user.getIdToken()
+  async function entrar(email: string, senha: string) {
+    // Login pelo servidor (Identity Toolkit admin): não depende do Web SDK
+    // e funciona mesmo antes de a API key do console existir.
     const resposta = await fetch('/api/sessao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
+      body: JSON.stringify({ email, senha }),
     })
-    if (!resposta.ok) throw new Error('Não foi possível iniciar a sessão.')
-    const dados = await resposta.json()
-    setUsuario(dados.usuario ?? { email: '', nome: '' })
-  }
-
-  async function entrar(email: string, senha: string) {
-    const credencial = await signInWithEmailAndPassword(getAuthClient(), email, senha)
-    await trocarPorCookie(credencial.user)
+    const dados = await resposta.json().catch(() => ({}))
+    if (!resposta.ok) throw new Error(dados?.erro ?? 'Não foi possível entrar.')
+    setUsuario(dados.usuario ?? { email, nome: email })
   }
 
   async function registrar(email: string, senha: string, nome: string) {
@@ -88,14 +79,13 @@ export function ProvedorAuth({ children }: { children: React.ReactNode }) {
     const dados = await resposta.json().catch(() => ({}))
     if (!resposta.ok) throw new Error(dados?.erro ?? 'Não foi possível criar a conta.')
 
-    const credencial = await createUserWithEmailAndPassword(getAuthClient(), email, senha)
-    if (nome) await updateProfile(credencial.user, { displayName: nome })
-    await trocarPorCookie(credencial.user)
+    // Depois de criar, faz login para já abrir o cookie de sessão.
+    await entrar(email, senha)
   }
 
   async function sair() {
     try {
-      await firebaseSignOut(getAuthClient())
+      if (firebaseConfigurado()) await firebaseSignOut(getAuthClient())
     } catch {
       /* ignora */
     }
