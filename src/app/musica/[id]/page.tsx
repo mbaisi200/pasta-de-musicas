@@ -45,6 +45,7 @@ export default async function PaginaMusica({ params }: Props) {
       proxima={proxima}
       posicaoNoSetList={posicao >= 0 ? posicao + 1 : 1}
       totalNoSetList={irmas.length}
+      listaDoSetList={irmas}
     />
   )
 }

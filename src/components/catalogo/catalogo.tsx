@@ -31,6 +31,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
+import { ContinuarDeOndeParou } from '@/components/catalogo/continuar'
 import { aparenciaDoInstrumento, corDoGrupo } from '@/lib/aparencia'
 import {
   FILTROS_VAZIOS,
@@ -340,6 +341,8 @@ export function Catalogo({ musicas }: CatalogoProps) {
           </div>
         </div>
       </div>
+
+      <ContinuarDeOndeParou musicas={musicas} />
 
       <p className="mb-3 text-sm text-muted-foreground">
         {filtradas.length === musicas.length

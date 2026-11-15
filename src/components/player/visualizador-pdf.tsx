@@ -10,6 +10,7 @@ import {
   ExternalLink,
   FileWarning,
   Gauge,
+  ListMusic,
   Maximize2,
   Minimize,
   Pause,
@@ -17,6 +18,7 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  Volume2,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -26,10 +28,18 @@ import 'react-pdf/dist/Page/TextLayer.css'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { registrarUltimaMusica } from '@/components/catalogo/continuar'
+import { aparenciaDoInstrumento } from '@/lib/aparencia'
 import { VELOCIDADE_MAX, VELOCIDADE_MIN, type Musica } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +55,8 @@ interface VisualizadorPdfProps {
   /** Posição da música dentro do SetList (ex.: 3) e total (ex.: 8). */
   posicaoNoSetList: number
   totalNoSetList: number
+  /** Todas as músicas do SetList (para navegar sem voltar ao catálogo). */
+  listaDoSetList: Musica[]
 }
 
 export function VisualizadorPdf({
@@ -53,6 +65,7 @@ export function VisualizadorPdf({
   proxima,
   posicaoNoSetList,
   totalNoSetList,
+  listaDoSetList,
 }: VisualizadorPdfProps) {
   const router = useRouter()
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -68,8 +81,12 @@ export function VisualizadorPdf({
   const [erro, setErro] = React.useState<string | null>(null)
   const [telaCheia, setTelaCheia] = React.useState(false)
   const [larguraArea, setLarguraArea] = React.useState(0)
+  const [listaAberta, setListaAberta] = React.useState(false)
+  const [progresso, setProgresso] = React.useState(0)
 
   const chavePosicao = `pasta-de-musicas:posicao:${musica.id}`
+  const aparenciaInstrumento = aparenciaDoInstrumento(musica.instrumento)
+  const IconeInstrumento = aparenciaInstrumento.icone
 
   /* ---------------------------------------------------------- layout */
   React.useEffect(() => {
@@ -103,6 +120,7 @@ export function VisualizadorPdf({
   function salvarPosicao(pagina: number) {
     try {
       window.localStorage.setItem(chavePosicao, String(pagina))
+      registrarUltimaMusica(musica.id, pagina)
     } catch {
       /* ignora */
     }
@@ -257,6 +275,10 @@ export function VisualizadorPdf({
         mudarVelocidade(velocidade - 1)
       } else if (e.key === 'Escape') {
         setRolando(false)
+      } else if (e.key === 'f' || e.key === 'F') {
+        void alternarTelaCheia()
+      } else if (e.key === 'l' || e.key === 'L') {
+        setListaAberta((v) => !v)
       }
     }
     window.addEventListener('keydown', aoTeclar)
@@ -344,6 +366,17 @@ export function VisualizadorPdf({
           </Link>
         </Button>
 
+        <span
+          className={cn(
+            'grid size-9 shrink-0 place-items-center rounded-xl',
+            aparenciaInstrumento.corFundo,
+            aparenciaInstrumento.cor,
+          )}
+          aria-hidden
+        >
+          <IconeInstrumento className="size-4" />
+        </span>
+
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold leading-tight sm:text-base">
             {musica.musica}
@@ -385,6 +418,23 @@ export function VisualizadorPdf({
           <TooltipContent>Editar música</TooltipContent>
         </Tooltip>
 
+        {listaDoSetList.length > 1 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden size-9 sm:inline-flex"
+                aria-label="Lista do SetList"
+                onClick={() => setListaAberta(true)}
+              >
+                <ListMusic className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Lista do SetList</TooltipContent>
+          </Tooltip>
+        )}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -401,6 +451,14 @@ export function VisualizadorPdf({
         </Tooltip>
       </div>
 
+      {/* Progresso da partitura */}
+      <div className="h-1 w-full shrink-0 bg-muted" role="presentation">
+        <div
+          className="h-full bg-primary transition-[width] duration-150"
+          style={{ width: `${Math.round(progresso * 100)}%` }}
+        />
+      </div>
+
       {/* Área da partitura */}
       <div
         ref={areaRef}
@@ -411,7 +469,15 @@ export function VisualizadorPdf({
         <div
           ref={containerRef}
           className="h-full overflow-y-auto overscroll-contain scrollbar-thin"
-          onWheel={() => {
+          onScroll={() => {
+          // Só atualiza o progresso — NÃO interrompe a rolagem automática
+          // (o evento de scroll também dispara durante o auto-scroll).
+          const el = containerRef.current
+          if (!el) return
+          const max = el.scrollHeight - el.clientHeight
+          setProgresso(max > 0 ? Math.min(1, el.scrollTop / max) : 0)
+        }}
+        onWheel={() => {
             if (rolando) setRolando(false)
           }}
           onTouchMove={() => {
@@ -601,6 +667,67 @@ export function VisualizadorPdf({
           )}
         </div>
       </div>
+
+      {/* Lista do SetList */}
+      <Sheet open={listaAberta} onOpenChange={setListaAberta}>
+        <SheetContent side="right" className="w-full max-w-sm overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <ListMusic className="size-4 text-primary" />
+              {musica.grupo || 'SetList'}
+            </SheetTitle>
+          </SheetHeader>
+          <ul className="space-y-1">
+            {listaDoSetList.map((item, indice) => {
+              const atual = item.id === musica.id
+              const aparencia = aparenciaDoInstrumento(item.instrumento)
+              const Icone = aparencia.icone
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setListaAberta(false)
+                      if (!atual) router.push(`/musica/${item.id}`)
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-accent',
+                      atual && 'bg-primary/10',
+                    )}
+                  >
+                    <span className="w-6 shrink-0 text-center text-xs tabular-nums text-muted-foreground">
+                      {indice + 1}
+                    </span>
+                    <span
+                      className={cn(
+                        'grid size-8 shrink-0 place-items-center rounded-lg',
+                        aparencia.corFundo,
+                        aparencia.cor,
+                      )}
+                    >
+                      <Icone className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          'block truncate text-sm',
+                          atual ? 'font-semibold text-primary' : 'font-medium',
+                        )}
+                      >
+                        {item.musica}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {item.autor || item.instrumento || '—'}
+                      </span>
+                    </span>
+                    {atual && <Volume2 className="size-4 shrink-0 text-primary" />}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </SheetContent>
+      </Sheet>
 
       {/* Atalho: som do metrônomo/aviso de rolagem */}
       <div className="sr-only" aria-live="polite">

@@ -19,7 +19,8 @@
     "regras": "node scripts/publicar-regras.mjs",
     "import:vfp": "tsx scripts/import-vfp.ts",
     "firebase:deploy": "firebase deploy --only firestore",
-    "config:web": "node scripts/configurar-web.mjs"
+    "config:web": "node scripts/configurar-web.mjs",
+    "criar:usuario": "node scripts/criar-usuario.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

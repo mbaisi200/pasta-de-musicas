@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { LayoutGrid, ListMusic, LogOut, Moon, Settings2, Sun, Wrench } from 'lucide-react'
 
 import { useAuth } from '@/components/auth/provedor-auth'
+import { BotaoAtalhos } from '@/components/layout/botao-atalhos'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -113,6 +114,8 @@ export function Cabecalho() {
             </TooltipTrigger>
             <TooltipContent>{tema === 'escuro' ? 'Tema claro' : 'Tema escuro'}</TooltipContent>
           </Tooltip>
+
+          <BotaoAtalhos />
 
           {usuario && (
             <DropdownMenu>
