@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Pasta de Músicas
+//
+// Toda leitura/escrita acontece no SERVIDOR (Next.js route handlers usando o
+// Firebase Admin SDK). O SDK Admin ignora estas regras — por isso o app
+// funciona sem expor qualquer chave do Firebase para o navegador.
+//
+// Consequência: o acesso direto do cliente (SDK Web) é BLOQUEADO.
+// Se um dia for usado o SDK Web no browser (ex.: login ou tempo real),
+// libere apenas as coleções necessárias neste arquivo.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Metadados das músicas
+    match /musicas/{musicaId} {
+      allow read, write: if false;
+    }
+
+    // Partituras em PDF (base64 dentro do documento)
+    match /musicas/{musicaId}/partitura/{partituraId} {
+      allow read, write: if false;
+    }
+
+    // Configurações do app (ajuda, contato, versão…)
+    match /configuracoes/{configId} {
+      allow read, write: if false;
+    }
+
+    // Qualquer outra coisa: bloqueado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

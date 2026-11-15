@@ -1,0 +1,29 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "musicas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "grupo", "order": "ASCENDING" },
+        { "fieldPath": "ordem", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "musicas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estilo", "order": "ASCENDING" },
+        { "fieldPath": "ordem", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "musicas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "autor", "order": "ASCENDING" },
+        { "fieldPath": "ordem", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
