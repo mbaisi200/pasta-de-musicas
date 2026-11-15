@@ -244,8 +244,21 @@ cota de 50.000/dia, dá para abrir a partitura ~600 vezes por dia.
 ## Problemas comuns
 
 **“Firebase Admin não configurado”**
-Faltou uma das variáveis. No Vercel, confirme que `FIREBASE_PRIVATE_KEY` está
-com aspas e com `\n` literais.
+Faltou uma das variáveis. Rode `https://SEU-APP.vercel.app/api/diagnostico` —
+ele diz qual variável está errada, sem mostrar nenhum segredo. O código aceita a
+chave com ou sem aspas e com `\n` literais ou quebras reais.
+
+**`ERR_REQUIRE_ESM: require() of ES Module .../jose` no deploy**
+O `firebase-admin` → `jwks-rsa` declara `jose` ^6 (ESM puro), mas o carrega com
+`require()`. Isso só funciona em Node ≥ 22.12. A correção já está no
+`package.json`:
+
+```json
+"overrides": { "jwks-rsa": { "jose": "^5.9.6" } }
+```
+
+O `jose` 5 ainda publica CJS, então a autenticação funciona em qualquer runtime.
+Se você criar um projeto do zero, **não remova esse override**.
 
 **A partitura não abre (erro de PDF)**
 O arquivo não chegou ao Firestore. Rode de novo `npm run import:vfp` e confira em

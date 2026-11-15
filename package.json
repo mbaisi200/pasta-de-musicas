@@ -4,7 +4,15 @@
   "private": true,
   "description": "Pasta de Músicas - catálogo e player de partituras (web + mobile PWA)",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
+  },
+  "comments": {
+    "overrides": "O firebase-admin 14 -> jwks-rsa 4 declara jose ^6, que é ESM puro, mas o jwks-rsa o carrega com require(). Isso só funciona em Node >= 22.12 (require de ESM). Fixando jose 5 (que ainda publica CJS) a autenticação funciona em qualquer runtime — era o erro 'ERR_REQUIRE_ESM: require() of ES Module jose' na Vercel."
+  },
+  "overrides": {
+    "jwks-rsa": {
+      "jose": "^5.9.6"
+    }
   },
   "scripts": {
     "dev": "next dev -p 3000",
