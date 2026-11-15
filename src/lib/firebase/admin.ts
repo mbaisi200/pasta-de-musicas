@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app'
-import { getAuth as getAuthAdmin, type Auth } from 'firebase-admin/auth'
+import type { Auth } from 'firebase-admin/auth'
 import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 
 import { normalizarChave } from './chave'
@@ -66,9 +66,16 @@ export function getDb(): Firestore {
   return db
 }
 
-/** Firebase Authentication (login/senha) — usado no servidor. */
-export function getAuth(): Auth {
+/**
+ * Firebase Authentication — carregado **sob demanda**.
+ *
+ * O módulo `firebase-admin/auth` arrasta `jwks-rsa`/`jose` (ESM). Carregando
+ * só quando alguém realmente precisa de sessão, o catálogo e as partituras
+ * funcionam sem tocar nessa dependência.
+ */
+export async function getAuth(): Promise<Auth> {
   if (GLOBAL.__firebaseAdminAuth) return GLOBAL.__firebaseAdminAuth
+  const { getAuth: getAuthAdmin } = await import('firebase-admin/auth')
   GLOBAL.__firebaseAdminAuth = getAuthAdmin(pegarApp())
   return GLOBAL.__firebaseAdminAuth
 }

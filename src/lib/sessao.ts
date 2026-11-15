@@ -50,7 +50,7 @@ export function ehAdmin(email: string | undefined): boolean {
 
 /** Cria o session cookie a partir de um ID token válido. */
 export async function criarSessao(idToken: string): Promise<string> {
-  const auth = getAuth()
+  const auth = await getAuth()
   return auth.createSessionCookie(idToken, { expiresIn: DURACAO_SESSAO_MS })
 }
 
@@ -64,7 +64,7 @@ export async function usuarioDaRequisicao(): Promise<UsuarioSessao | null> {
 /** Valida um session cookie e devolve os dados do usuário. */
 export async function usuarioDoCookie(cookie: string): Promise<UsuarioSessao | null> {
   try {
-    const auth = getAuth()
+    const auth = await getAuth()
     // `checkRevoked = true` faria uma consulta ao Identity Toolkit em cada
     // requisição — e o endpoint que o SDK usa (`accounts:batchGet`) devolve
     // 404 nos projetos novos, travando a página. A verificação aqui é a

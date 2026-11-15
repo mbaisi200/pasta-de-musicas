@@ -6,6 +6,15 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // O AGENTS.md deste projeto é mantido à mão — não gerar automaticamente.
   agentRules: false,
+
+  /**
+   * Pacotes que o Next NÃO deve empacotar — resolvidos pelo Node em runtime.
+   *
+   * O `firebase-admin/auth` carrega `jwks-rsa`, que dá `require()` no `jose`
+   * (módulo ESM). Empacotado na Vercel isso quebra com `ERR_REQUIRE_ESM`;
+   * marcando como externos, o Node carrega os arquivos reais.
+   */
+  serverExternalPackages: ['firebase-admin', 'jwks-rsa', 'jose', 'google-auth-library'],
   // Evita que o Turbopack suba para o diretório HOME e se confunda com
   // outros package.json da máquina.
   turbopack: {

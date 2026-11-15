@@ -15,7 +15,8 @@ export async function GET() {
   }
 
   try {
-    const lista = await getAuth().listUsers(1000)
+    const auth = await getAuth()
+    const lista = await auth.listUsers(1000)
     const usuarios = lista.users.map((u) => ({
       uid: u.uid,
       email: u.email ?? '',
@@ -61,7 +62,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const criado = await getAuth().createUser({
+    const auth = await getAuth()
+    const criado = await auth.createUser({
       email,
       password: senha,
       displayName: nome || undefined,
@@ -98,7 +100,8 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    await getAuth().deleteUser(uid)
+    const auth = await getAuth()
+    await auth.deleteUser(uid)
     return NextResponse.json({ ok: true })
   } catch (erro) {
     return NextResponse.json(
