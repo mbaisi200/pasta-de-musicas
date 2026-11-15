@@ -38,10 +38,18 @@ export async function diagnosticar(): Promise<Diagnostico> {
 
   /* ------------------------------------------------------- project id */
   const projectId = process.env.FIREBASE_PROJECT_ID ?? ''
+  const projetoValido = /^[a-z0-9][a-z0-9-]*$/.test(projectId)
+  const temAspas = /^["'`]|["'`]$/.test(projectId)
   itens.push({
     variavel: 'FIREBASE_PROJECT_ID',
-    ok: Boolean(projectId),
-    detalhe: projectId ? `"${projectId}"` : 'não definida',
+    ok: projetoValido,
+    detalhe: !projectId
+      ? 'não definida'
+      : temAspas
+        ? `${projectId} — ⚠️ com aspas, remova-as`
+        : projetoValido
+          ? projectId
+          : `${projectId} — formato inesperado (use só minúsculas, números e hífens)`,
     correcao: 'Firebase Console → Configurações do projeto → o ID do projeto.',
   })
 
@@ -156,7 +164,8 @@ export async function diagnosticar(): Promise<Diagnostico> {
 
   return {
     ok: itens.every((i) => i.ok) && !erroFirestore,
-    itens,
+    // `correcao` só interessa quando há o que corrigir.
+    itens: itens.map((item) => (item.ok ? { ...item, correcao: undefined } : item)),
     erroFirestore,
     ambiente: process.env.VERCEL ? 'Vercel' : process.env.NODE_ENV ?? 'desconhecido',
   }

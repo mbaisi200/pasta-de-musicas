@@ -90,8 +90,10 @@ node scripts/configurar-web.mjs      # cole o JSON e pressione Ctrl+D
 ### 3.3 (Opcional) Autorizar um domínio na Vercel
 
 Em **Authentication → Settings → Authorized domains**, adicione o domínio da
-Vercel (ex.: `pasta-de-musicas.vercel.app`). Sem isso, o login funciona em
-localhost mas pode ser bloqueado no domínio publicado.
+Vercel (`pasta-de-musicas.vercel.app`). Como o login é feito **no servidor**
+(Identity Toolkit via Service Account), a lista de domínios autorizados não é
+obrigatória — ela só é necessária se algum dia o Web SDK for usado no navegador.
+Hoje o único efeito prático é liberar o domínio para futuras integrações.
 
 ---
 

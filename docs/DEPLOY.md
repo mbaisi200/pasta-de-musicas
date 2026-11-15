@@ -86,7 +86,22 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
    *Production*, *Preview* e *Development*.
 4. **Deploy**.
 
-Pronto — o app já está no ar (ex.: `https://pasta-de-musicas-ivan.vercel.app`).
+Pronto — o app já está no ar em <https://pasta-de-musicas.vercel.app>.
+
+### Verificação rápida do deploy
+
+`https://pasta-de-musicas.vercel.app/api/diagnostico` devolve `"ok": true`
+quando as três variáveis estão certas e o Firestore responde. Se alguma estiver
+errada, o próprio JSON diz qual e o que corrigir — sem expor nenhum segredo.
+
+Em seguida, teste o login em `/entrar`. Sintomas e causas:
+
+| Sintoma | Causa provável |
+|---|---|
+| "E-mail ou senha incorretos" | senha errada (a conta é criada com `npm run criar:usuario`) |
+| "Configuração do Firebase inválida no servidor" | `FIREBASE_PRIVATE_KEY` colada errada → use o `/api/diagnostico` |
+| "Sessão inválida ou expirada" com detalhe técnico | veja o `detalhe` na tela ou os logs da Vercel |
+| Login ok mas volta para `/entrar` | cookie `Secure`: acesse por `https://` (não `http://`)
 
 ### Build local igual ao da Vercel
 
