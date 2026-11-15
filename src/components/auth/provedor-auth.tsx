@@ -65,7 +65,11 @@ export function ProvedorAuth({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ email, senha }),
     })
     const dados = await resposta.json().catch(() => ({}))
-    if (!resposta.ok) throw new Error(dados?.erro ?? 'Não foi possível entrar.')
+    if (!resposta.ok) {
+      throw new Error(
+        dados?.detalhe ? `${dados.erro ?? 'Erro'} — ${dados.detalhe}` : (dados?.erro ?? 'Não foi possível entrar.'),
+      )
+    }
     setUsuario(dados.usuario ?? { email, nome: email })
   }
 

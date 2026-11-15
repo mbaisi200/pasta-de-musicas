@@ -51,7 +51,8 @@ export async function POST(request: Request) {
     resposta.cookies.set(COOKIE_SESSAO, cookie, opcoesCookie(request, 5 * 24 * 60 * 60))
     return resposta
   } catch (erro) {
-    const mensagem = erro instanceof Error ? erro.message : ''
+    const mensagem = erro instanceof Error ? erro.message : String(erro)
+    console.error('[sessao] criarSessao falhou:', mensagem)
     if (/PRIVATE_KEY|credential|DECODER|PEM/i.test(mensagem)) {
       return NextResponse.json(
         {
@@ -61,7 +62,10 @@ export async function POST(request: Request) {
         { status: 503 },
       )
     }
-    return NextResponse.json({ erro: 'Sessão inválida ou expirada.' }, { status: 401 })
+    return NextResponse.json(
+      { erro: 'Sessão inválida ou expirada.', detalhe: mensagem.slice(0, 300) },
+      { status: 401 },
+    )
   }
 }
 
