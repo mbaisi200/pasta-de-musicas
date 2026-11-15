@@ -50,7 +50,17 @@ export async function POST(request: Request) {
     const resposta = NextResponse.json({ ok: true })
     resposta.cookies.set(COOKIE_SESSAO, cookie, opcoesCookie(request, 5 * 24 * 60 * 60))
     return resposta
-  } catch {
+  } catch (erro) {
+    const mensagem = erro instanceof Error ? erro.message : ''
+    if (/PRIVATE_KEY|credential|DECODER|PEM/i.test(mensagem)) {
+      return NextResponse.json(
+        {
+          erro: 'Configuração do Firebase inválida no servidor (chave privada).',
+          diagnostico: '/api/diagnostico',
+        },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({ erro: 'Sessão inválida ou expirada.' }, { status: 401 })
   }
 }

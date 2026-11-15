@@ -20,7 +20,20 @@ export async function GET() {
     })
   }
 
-  const usuario = await usuarioDaRequisicao()
-  if (!usuario) return NextResponse.json({ erro: 'Não autenticado.' }, { status: 401 })
-  return NextResponse.json({ usuario })
+  try {
+    const usuario = await usuarioDaRequisicao()
+    if (!usuario) return NextResponse.json({ erro: 'Não autenticado.' }, { status: 401 })
+    return NextResponse.json({ usuario })
+  } catch (erro) {
+    // Credencial do Firebase inválida (ex.: FIREBASE_PRIVATE_KEY errada na
+    // Vercel) não deve virar 500: o front precisa saber que é configuração.
+    return NextResponse.json(
+      {
+        erro: 'Falha ao validar a sessão — configuração do Firebase inválida.',
+        detalhe: erro instanceof Error ? erro.message.slice(0, 200) : undefined,
+        diagnostico: '/api/diagnostico',
+      },
+      { status: 401 },
+    )
+  }
 }

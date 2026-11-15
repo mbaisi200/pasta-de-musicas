@@ -28,10 +28,15 @@ export default function PaginaEntrar() {
   const [autenticacaoAtiva, setAutenticacaoAtiva] = React.useState<boolean | null>(null)
 
   const proximo = parametros?.get('proximo') || '/'
-  console.log('[entrar] proximo =', JSON.stringify(proximo), '| parametros =', parametros === null ? 'null' : 'ok')
 
+  // Redireciona UMA única vez depois do login. Sem essa trava, uma falha no
+  // destino (ex.: erro 500) re-dispara o efeito em loop.
+  const jaRedirecionou = React.useRef(false)
   React.useEffect(() => {
-    if (usuario) router.replace(proximo)
+    if (usuario && !jaRedirecionou.current) {
+      jaRedirecionou.current = true
+      router.replace(proximo)
+    }
   }, [usuario, router, proximo])
 
 
