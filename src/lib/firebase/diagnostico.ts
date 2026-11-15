@@ -95,11 +95,8 @@ export async function diagnosticar(): Promise<Diagnostico> {
     let assinou = false
     try {
       const { createSign } = await import('node:crypto')
-      const chaveTratada = bruta
-        .replace(/^\s*"|"\s*$/g, '')
-        .replace(/\\n/g, '\n')
-        .trim()
-      createSign('RSA-SHA256').update('teste').sign(chaveTratada)
+      const { normalizarChave } = await import('./chave')
+      createSign('RSA-SHA256').update('teste').sign(normalizarChave(bruta) ?? '')
       assinou = true
       partes.push('assina ✓')
     } catch (erro) {

@@ -2,6 +2,8 @@ import 'server-only'
 
 import { createSign } from 'node:crypto'
 
+import { normalizarChave } from './chave'
+
 /**
  * Token de acesso (OAuth 2.0) da Service Account, sem depender da API key.
  *
@@ -19,7 +21,7 @@ function base64url(entrada: string): string {
 export async function gerarAccessToken(): Promise<string> {
   const projectId = process.env.FIREBASE_PROJECT_ID
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  const privateKey = normalizarChave(process.env.FIREBASE_PRIVATE_KEY)
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error('Firebase Admin não configurado (FIREBASE_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY).')
