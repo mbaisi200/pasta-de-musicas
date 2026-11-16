@@ -36,7 +36,6 @@ import { CapaSetList } from '@/components/capa/capa-setlist'
 import {
   PastaDeMusicas,
   Pentagrama,
-  Seminima,
   Songbook,
 } from '@/components/icones/musicais'
 import { aparenciaDoInstrumento, corDoGrupo } from '@/lib/aparencia'
@@ -51,6 +50,85 @@ import { cn, normalizar } from '@/lib/utils'
 
 interface CatalogoProps {
   musicas: Musica[]
+}
+
+/** Preferências do catálogo por dispositivo (ordem e agrupamento). */
+const CHAVE_ORDEM = 'pasta-de-musicas:ordem-catalogo'
+const CHAVE_SETLIST = 'pasta-de-musicas:setlist-ativo'
+const EVENTO_PREFERENCIAS = 'pasta-de-musicas:preferencias-catalogo'
+
+/** A transcrição de voz costuma vir com ponto final — removemos a pontuação das bordas. */
+function limparFala(texto: string): string {
+  return texto
+    .replace(/^[\s.,;:!?…]+|[\s.,;:!?…]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function assinarPreferencias(aoMudar: () => void) {
+  if (typeof window === 'undefined') return () => undefined
+  window.addEventListener('storage', aoMudar)
+  window.addEventListener(EVENTO_PREFERENCIAS, aoMudar)
+  return () => {
+    window.removeEventListener('storage', aoMudar)
+    window.removeEventListener(EVENTO_PREFERENCIAS, aoMudar)
+  }
+}
+
+function lerPreferencias(): string {
+  try {
+    return `${window.localStorage.getItem(CHAVE_ORDEM) ?? ''}|${
+      window.localStorage.getItem(CHAVE_SETLIST) ?? ''
+    }`
+  } catch {
+    return '|'
+  }
+}
+
+/** No servidor não existe localStorage: começa com os padrões. */
+function lerPreferenciasNoServidor(): string {
+  return '|'
+}
+
+function gravarPreferencia(chave: string, valor: string) {
+  try {
+    window.localStorage.setItem(chave, valor)
+  } catch {
+    /* modo privativo */
+  }
+  window.dispatchEvent(new Event(EVENTO_PREFERENCIAS))
+}
+
+function ordemValida(valor: string | undefined): OrdemCatalogo | null {
+  return ORDEM_CATALOGO.some((opcao) => opcao.valor === valor)
+    ? (valor as OrdemCatalogo)
+    : null
+}
+
+/**
+ * Lê a ordem e o agrupamento do `localStorage` sem perder a seleção quando o
+ * usuário abre uma música e volta ao catálogo. O `useSyncExternalStore`
+ * mantém a hidratação segura e sincroniza outras abas.
+ */
+function usePreferenciasCatalogo() {
+  const bruto = React.useSyncExternalStore(
+    assinarPreferencias,
+    lerPreferencias,
+    lerPreferenciasNoServidor,
+  )
+  const [ordemSalva, setlistSalvo] = bruto.split('|')
+  const ordem = ordemValida(ordemSalva) ?? 'setlist'
+  const agrupado = setlistSalvo === '' ? true : setlistSalvo !== '0'
+
+  function mudarOrdem(valor: OrdemCatalogo) {
+    gravarPreferencia(CHAVE_ORDEM, valor)
+  }
+
+  function alternarSetList() {
+    gravarPreferencia(CHAVE_SETLIST, agrupado ? '0' : '1')
+  }
+
+  return { ordem, agrupado, mudarOrdem, alternarSetList }
 }
 
 /* ------------------------------------------------- tipos da Web Speech API */
@@ -80,8 +158,7 @@ function construtorDeVoz(): ConstrutorVoz | null {
 
 export function Catalogo({ musicas }: CatalogoProps) {
   const [filtros, setFiltros] = React.useState<Filtros>(FILTROS_VAZIOS)
-  const [ordem, setOrdem] = React.useState<OrdemCatalogo>('setlist')
-  const [agrupado, setAgrupado] = React.useState(true)
+  const { ordem, agrupado, mudarOrdem, alternarSetList } = usePreferenciasCatalogo()
   const [filtrosAbertos, setFiltrosAbertos] = React.useState(false)
   const [ouvindo, setOuvindo] = React.useState(false)
 
@@ -183,7 +260,8 @@ export function Catalogo({ musicas }: CatalogoProps) {
     rec.maxAlternatives = 1
     rec.onresult = (evento) => {
       const fala = evento.results?.[0]?.[0]?.transcript
-      if (fala) setFiltros((f) => ({ ...f, busca: fala }))
+      const limpa = fala ? limparFala(fala) : ''
+      if (limpa) setFiltros((f) => ({ ...f, busca: limpa }))
     }
     rec.onend = () => setOuvindo(false)
     rec.onerror = () => setOuvindo(false)
@@ -311,8 +389,31 @@ export function Catalogo({ musicas }: CatalogoProps) {
             </>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
-            <Select value={ordem} onValueChange={(v) => setOrdem(v as OrdemCatalogo)}>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={agrupado ? 'secondary' : 'ghost'}
+                  size="sm"
+                  aria-pressed={agrupado}
+                  className={cn(
+                    'h-9 gap-1.5 px-2.5 text-xs',
+                    !agrupado && 'text-muted-foreground',
+                  )}
+                  onClick={alternarSetList}
+                >
+                  <ListFilter className="size-4" />
+                  <span>{agrupado ? 'SetList ativo' : 'SetList inativo'}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {agrupado
+                  ? 'Desativar o agrupamento por SetList'
+                  : 'Ativar o agrupamento por SetList'}
+              </TooltipContent>
+            </Tooltip>
+
+            <Select value={ordem} onValueChange={(v) => mudarOrdem(v as OrdemCatalogo)}>
               <SelectTrigger
                 className="h-9 w-auto max-w-[11rem] shrink-0 gap-1.5 border-none bg-transparent px-2 text-xs shadow-none"
                 aria-label="Ordenar músicas"
@@ -330,57 +431,38 @@ export function Catalogo({ musicas }: CatalogoProps) {
                 ))}
               </SelectContent>
             </Select>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={agrupado ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="h-9 gap-1.5 px-2.5 text-xs"
-                  onClick={() => setAgrupado((v) => !v)}
-                >
-                  <ListFilter className="size-4" />
-                  <span className="hidden sm:inline">Por SetList</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Agrupar músicas por SetList</TooltipContent>
-            </Tooltip>
           </div>
         </div>
       </div>
 
       <ContinuarDeOndeParou musicas={musicas} />
 
-      {/* Herói — números do repertório */}
-      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <CartaoEstatistica
-          icone={Seminima}
-          valor={String(musicas.length)}
-          rotulo={musicas.length === 1 ? 'música' : 'músicas'}
-          destaque
-        />
-        <CartaoEstatistica
-          icone={Songbook}
-          valor={String(new Set(musicas.map((m) => m.grupo).filter(Boolean)).size)}
-          rotulo="setlists"
-        />
-        <CartaoEstatistica
-          icone={Pentagrama}
-          valor={String(musicas.filter((m) => m.arquivo).length)}
-          rotulo="com partitura"
-        />
-        <CartaoEstatistica
-          icone={PastaDeMusicas}
-          valor={String(new Set(musicas.map((m) => m.estilo).filter(Boolean)).size)}
-          rotulo="estilos"
-        />
-      </section>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="text-sm text-muted-foreground">
+          {filtradas.length === musicas.length
+            ? `${musicas.length} ${musicas.length === 1 ? 'música' : 'músicas'}`
+            : `${filtradas.length} de ${musicas.length} músicas`}
+        </p>
 
-      <p className="mb-3 text-sm text-muted-foreground">
-        {filtradas.length === musicas.length
-          ? `${musicas.length} ${musicas.length === 1 ? 'música' : 'músicas'}`
-          : `${filtradas.length} de ${musicas.length} músicas`}
-      </p>
+        {/* Totais — apenas informação, em tamanho discreto e sem aparência de botão */}
+        <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <EstatisticaCompacta
+            icone={Songbook}
+            valor={String(new Set(musicas.map((m) => m.grupo).filter(Boolean)).size)}
+            rotulo="setlists"
+          />
+          <EstatisticaCompacta
+            icone={Pentagrama}
+            valor={String(musicas.filter((m) => m.arquivo).length)}
+            rotulo="com partitura"
+          />
+          <EstatisticaCompacta
+            icone={PastaDeMusicas}
+            valor={String(new Set(musicas.map((m) => m.estilo).filter(Boolean)).size)}
+            rotulo="estilos"
+          />
+        </div>
+      </div>
 
       {filtradas.length === 0 ? (
         <EstadoVazio temMusicas={musicas.length > 0} />
@@ -607,39 +689,21 @@ function ListaMusicas({
   )
 }
 
-function CartaoEstatistica({
+function EstatisticaCompacta({
   icone: Icone,
   valor,
   rotulo,
-  destaque,
 }: {
   icone: (props: { className?: string }) => React.ReactElement
   valor: string
   rotulo: string
-  destaque?: boolean
 }) {
   return (
-    <div
-      className={cn(
-        'vidro borda-gradiente group relative flex items-center gap-3 overflow-hidden rounded-2xl p-4 transition-transform duration-300 hover:-translate-y-0.5',
-        destaque && 'sombra-latao',
-      )}
-    >
-      <span
-        className={cn(
-          'grid size-11 shrink-0 place-items-center rounded-xl transition-colors',
-          destaque
-            ? 'bg-primary/15 text-primary'
-            : 'bg-muted/60 text-muted-foreground group-hover:text-primary',
-        )}
-      >
-        <Icone className="size-5" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-2xl font-semibold leading-none tabular-nums">{valor}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">{rotulo}</p>
-      </div>
-    </div>
+    <span className="inline-flex items-center gap-1" title={`${valor} ${rotulo}`}>
+      <Icone className="size-3.5 shrink-0 opacity-70" />
+      <span className="font-medium tabular-nums text-foreground">{valor}</span>
+      <span>{rotulo}</span>
+    </span>
   )
 }
 

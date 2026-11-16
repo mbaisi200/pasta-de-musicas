@@ -7,7 +7,7 @@
  *  - PDFs da partitura: rede primeiro com cache (partitura já tocada funciona offline)
  */
 
-const VERSAO = 'v1'
+const VERSAO = 'v2'
 const CACHE_SHELL = `pasta-musicas-shell-${VERSAO}`
 const CACHE_ASSETS = `pasta-musicas-assets-${VERSAO}`
 const CACHE_PDF = `pasta-musicas-pdf-${VERSAO}`

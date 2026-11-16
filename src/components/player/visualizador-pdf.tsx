@@ -82,6 +82,8 @@ export function VisualizadorPdf({
   const [erro, setErro] = React.useState<string | null>(null)
   const [telaCheia, setTelaCheia] = React.useState(false)
   const [larguraArea, setLarguraArea] = React.useState(0)
+  const [alturaArea, setAlturaArea] = React.useState(0)
+  const [proporcaoPagina, setProporcaoPagina] = React.useState(1 / 1.414)
   const [listaAberta, setListaAberta] = React.useState(false)
   const [progresso, setProgresso] = React.useState(0)
 
@@ -95,17 +97,40 @@ export function VisualizadorPdf({
     if (!alvo) return
     const observer = new ResizeObserver(([entrada]) => {
       setLarguraArea(entrada.contentRect.width)
+      setAlturaArea(entrada.contentRect.height)
     })
     observer.observe(alvo)
     return () => observer.disconnect()
   }, [])
 
-  /* ------------------------------------------------- largura da página */
+  /* ------------------------------------------ layout da partitura */
+  /**
+   * Em telas de notebook/desktop (≥ 1024 px) a partitura cabe inteira na
+   * tela e, quando o PDF tem mais de uma página, duas páginas aparecem lado
+   * a lado — como um caderno aberto.
+   */
+  const modoNotebook = larguraArea >= 1024
+  const duasPaginas = modoNotebook && numPaginas > 1
+  const colunas = duasPaginas ? 2 : 1
+
   const larguraPagina = React.useMemo(() => {
     if (!larguraArea) return 0
-    const disponivel = Math.min(larguraArea - 24, 920)
-    return Math.max(240, Math.round(disponivel * zoom))
-  }, [larguraArea, zoom])
+    const espacoHorizontal = 24
+    const vao = duasPaginas ? 16 : 0
+    const larguraDisponivel = Math.max(
+      (larguraArea - espacoHorizontal - vao) / colunas,
+      200,
+    )
+
+    if (modoNotebook && alturaArea > 0) {
+      const alturaDisponivel = Math.max(alturaArea - 32, 200)
+      const larguraPelaAltura = alturaDisponivel * proporcaoPagina
+      const base = Math.min(larguraDisponivel, larguraPelaAltura, 920)
+      return Math.max(200, Math.round(base * zoom))
+    }
+
+    return Math.max(240, Math.round(Math.min(larguraArea - 24, 920) * zoom))
+  }, [larguraArea, alturaArea, zoom, duasPaginas, colunas, modoNotebook, proporcaoPagina])
 
   /* ------------------------------------------- posição salva (retomar) */
   React.useEffect(() => {
@@ -217,21 +242,28 @@ export function VisualizadorPdf({
     const alvo = paginasRef.current[pagina - 1]
     const container = containerRef.current
     if (!alvo || !container) return
-    const topo = alvo.offsetTop - container.offsetTop - 8
+    const topo =
+      alvo.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop -
+      8
     container.scrollTo({ top: topo, behavior: comportamento })
     setPaginaAtual(pagina)
     salvarPosicao(pagina)
   }
 
+  /** No modo de duas páginas, cada passo avança/volta um par (caderno aberto). */
+  const passoPagina = duasPaginas ? 2 : 1
+
   const proximaPagina = React.useCallback(() => {
-    irParaPagina(Math.min(paginaAtual + 1, numPaginas || 1))
+    irParaPagina(Math.min(paginaAtual + passoPagina, numPaginas || 1))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paginaAtual, numPaginas])
+  }, [paginaAtual, numPaginas, passoPagina])
 
   const paginaAnterior = React.useCallback(() => {
-    irParaPagina(Math.max(paginaAtual - 1, 1))
+    irParaPagina(Math.max(paginaAtual - passoPagina, 1))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paginaAtual])
+  }, [paginaAtual, passoPagina])
 
   /* ----------------------------------------------- página atual (observer) */
   React.useEffect(() => {
@@ -245,8 +277,10 @@ export function VisualizadorPdf({
         if (!visivel) return
         const indice = paginasRef.current.findIndex((el) => el === visivel.target)
         if (indice >= 0) {
-          setPaginaAtual(indice + 1)
-          salvarPosicao(indice + 1)
+          // Com duas páginas lado a lado, a posição é sempre a primeira do par.
+          const pagina = duasPaginas ? Math.floor(indice / 2) * 2 + 1 : indice + 1
+          setPaginaAtual(pagina)
+          salvarPosicao(pagina)
         }
       },
       { root: container, threshold: [0.2, 0.5, 0.9] },
@@ -254,7 +288,7 @@ export function VisualizadorPdf({
     paginasRef.current.forEach((el) => el && observer.observe(el))
     return () => observer.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numPaginas, larguraPagina])
+  }, [numPaginas, larguraPagina, duasPaginas])
 
   /* --------------------------------------------------------- atalhos */
   React.useEffect(() => {
@@ -323,7 +357,25 @@ export function VisualizadorPdf({
   }
 
   /* ---------------------------------------------------------- estados */
-  const urlPdf = `/api/musicas/${musica.id}/pdf`
+  // A versão na URL força o navegador/PDF.js a buscar o arquivo novo quando
+  // a partitura é substituída (sem depender do cache HTTP).
+  const versaoPdf = `${musica.updatedAt}-${musica.arquivo?.tamanho ?? 0}`
+  const urlPdf = `/api/musicas/${musica.id}/pdf?v=${encodeURIComponent(versaoPdf)}`
+
+  /** No modo de duas páginas, agrupa em pares: [1, 2], [3, 4]… */
+  const blocosPaginas = React.useMemo(() => {
+    const paginas = Array.from({ length: numPaginas }, (_, i) => i + 1)
+    if (!duasPaginas) return paginas.map((n) => [n])
+    const blocos: number[][] = []
+    for (let i = 0; i < paginas.length; i += 2) blocos.push(paginas.slice(i, i + 2))
+    return blocos
+  }, [numPaginas, duasPaginas])
+
+  const inicioBloco = duasPaginas
+    ? Math.floor((paginaAtual - 1) / 2) * 2 + 1
+    : paginaAtual
+  const fimBloco = duasPaginas ? Math.min(inicioBloco + 1, numPaginas) : paginaAtual
+  const rotuloPagina = fimBloco > inicioBloco ? `${inicioBloco}–${fimBloco}` : String(inicioBloco)
 
   if (!musica.arquivo) {
     return (
@@ -497,6 +549,7 @@ export function VisualizadorPdf({
         >
           <div className="mx-auto flex w-full flex-col items-center gap-3 px-3 py-4">
             <Document
+              key={urlPdf}
               file={urlPdf}
               onLoadSuccess={({ numPages: total }) => {
                 setNumPaginas(total)
@@ -523,24 +576,39 @@ export function VisualizadorPdf({
                 </div>
               }
             >
-              {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
+              {blocosPaginas.map((bloco) => (
                 <div
-                  key={n}
-                  ref={(el) => {
-                    paginasRef.current[n - 1] = el
-                  }}
-                  className="w-full"
+                  key={bloco[0]}
+                  className={cn(
+                    'flex w-full justify-center',
+                    duasPaginas ? 'flex-wrap items-start gap-4' : 'flex-col gap-3',
+                  )}
                 >
-                  <Page
-                    pageNumber={n}
-                    width={larguraPagina || undefined}
-                    className="entrada-partitura overflow-hidden rounded-md shadow-2xl shadow-black/30 ring-1 ring-black/10"
-                    loading={
-                      <div className="grid aspect-[1/1.414] w-full place-items-center bg-white/90 text-zinc-500">
-                        <div className="size-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
-                      </div>
-                    }
-                  />
+                  {bloco.map((n) => (
+                    <div
+                      key={n}
+                      ref={(el) => {
+                        paginasRef.current[n - 1] = el
+                      }}
+                      className={cn('flex justify-center', duasPaginas ? 'min-w-0' : 'w-full')}
+                    >
+                      <Page
+                        pageNumber={n}
+                        width={larguraPagina || undefined}
+                        onLoadSuccess={(pagina) => {
+                          if (n === 1 && pagina.originalHeight > 0) {
+                            setProporcaoPagina(pagina.originalWidth / pagina.originalHeight)
+                          }
+                        }}
+                        className="entrada-partitura overflow-hidden rounded-md shadow-2xl shadow-black/30 ring-1 ring-black/10"
+                        loading={
+                          <div className="grid aspect-[1/1.414] w-full place-items-center bg-white/90 text-zinc-500">
+                            <div className="size-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+                          </div>
+                        }
+                      />
+                    </div>
+                  ))}
                 </div>
               ))}
             </Document>
@@ -640,13 +708,13 @@ export function VisualizadorPdf({
                 size="icon"
                 className="size-10"
                 onClick={paginaAnterior}
-                disabled={paginaAtual <= 1}
+                disabled={paginaAtual - passoPagina < 1}
                 aria-label="Página anterior"
               >
                 <ChevronLeft className="size-5" />
               </Button>
               <span className="min-w-14 text-center text-sm font-medium tabular-nums">
-                {paginaAtual}
+                {rotuloPagina}
                 <span className="text-muted-foreground">/{numPaginas || '—'}</span>
               </span>
               <Button
@@ -654,7 +722,7 @@ export function VisualizadorPdf({
                 size="icon"
                 className="size-10"
                 onClick={proximaPagina}
-                disabled={paginaAtual >= (numPaginas || 1)}
+                disabled={paginaAtual + passoPagina > numPaginas}
                 aria-label="Próxima página"
               >
                 <ChevronRight className="size-5" />

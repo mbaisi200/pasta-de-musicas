@@ -41,3 +41,7 @@ firebase-debug.log
 
 # dados locais do modo demo (.data/)
 /.data/
+
+# relatório de linguagens (artefato gerado por scripts/relatorio/)
+/relatorio-linguagens-projeto.pdf
+/scripts/relatorio/dados.json

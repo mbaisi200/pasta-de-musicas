@@ -103,10 +103,18 @@ em duas linhas, "Sérgio Bitencourt" virava três. A tabela passou a ser
 | --- | --- | --- | --- |
 | Busca | ocupa a largura, ícone de microfone à direita | idem | idem |
 | Filtros | botão → *bottom sheet* | botão → *bottom sheet* | 4 selects em linha (`lg:`) |
-| Ordenação | select compacto (ícone + rótulo curto) | idem | idem |
+| SetList | botão **SetList ativo/inativo** (liga/desliga o agrupamento) | idem | idem |
+| Ordenação | select compacto (ícone + rótulo curto), depois do SetList | idem | idem |
+| Totais | linha discreta ao lado da contagem (ícone + número + rótulo) | idem | idem, alinhados à direita |
 | Lista | 1 coluna de cartões | **2 colunas** (`sm:grid-cols-2`) | tabela |
 | Agrupamento | por SetList com linha colorida | idem | linha de grupo dentro da tabela |
 
+- **SetList x Ordem**: o botão **SetList ativo/inativo** só liga e desliga o
+  agrupamento; a **ordem** (SetList, nome, autor, estilo, instrumento) é uma
+  escolha separada, exibida depois dele. As duas preferências ficam no
+  `localStorage`, então voltar de uma música mantém o catálogo como estava.
+- **Totais**: são apenas informação. Ficam em texto pequeno ao lado da
+  contagem de músicas — sem cartões e sem hover, para não parecerem clicáveis.
 - **Ícone por instrumento** (`src/lib/aparencia.ts`): "Teclado" → piano,
   "Baixo" → disco, "Trumpete" → nota musical, "Cifra" → partitura,
   "Letra" → linha de áudio. É o mesmo texto livre do app VFP
@@ -115,12 +123,19 @@ em duas linhas, "Sérgio Bitencourt" virava três. A tabela passou a ser
   repertório sempre aparece na mesma cor, o que ajuda a memorizar a sequência.
 - **Busca por voz**: botão de microfone ao lado da busca (Web Speech API,
   `pt-BR`). É um item do documento original do projeto ("Pesquisa por voz").
-  Em navegadores sem suporte, mostra um aviso e não quebra nada.
+  Em navegadores sem suporte, mostra um aviso e não quebra nada. A pontuação
+  final da transcrição ("CHORO.") é descartada antes de pesquisar.
 
 ### 2.2 Player (`/musica/[id]`)
 
 - Tela cheia: o cabeçalho do site some (`Cabecalho` retorna `null` em
   `/musica/*`) e o player ocupa 100% da altura (`h-dvh`).
+- **Notebook/desktop (área ≥ 1024 px)**: a partitura é ajustada à altura da
+  tela (sem cortar a página) e, se o PDF tiver mais de uma página, duas
+  páginas aparecem lado a lado — a navegação avança/volta um par e o contador
+  mostra, por exemplo, **1–2 / 4**.
+- **Celular/tablet em retrato**: uma página por vez, ajustada à largura, com
+  rolagem vertical (comportamento anterior preservado).
 - **Barra de controles em uma faixa no celular** e com folga a partir de
   `sm:` — o slider de velocidade ganha largura (`w-14` → `w-24` → `w-28`) em
   vez de espremer os botões.

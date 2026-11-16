@@ -261,6 +261,15 @@ export function FormMusica({
           className="hidden"
           onChange={(e) => {
             const escolhido = e.target.files?.[0] ?? null
+            if (escolhido && escolhido.size > TAMANHO_MAXIMO_PDF) {
+              toast.error(
+                `PDF de ${formatarBytes(escolhido.size)} — o limite é ` +
+                  `${Math.round(TAMANHO_MAXIMO_PDF / 1024)} KB. Reduza o arquivo e tente novamente.`,
+              )
+              setArquivo(null)
+              e.target.value = ''
+              return
+            }
             setArquivo(escolhido)
             setAnalise(null)
             if (escolhido) void analisar(escolhido)

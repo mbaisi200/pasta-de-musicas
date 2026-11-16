@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   closestCenter,
   DndContext,
@@ -59,12 +59,25 @@ interface ManutencaoProps {
 
 export function Manutencao({ musicas }: ManutencaoProps) {
   const router = useRouter()
+  const parametros = useSearchParams()
   const [busca, setBusca] = React.useState('')
-  const [editando, setEditando] = React.useState<Musica | null | undefined>(undefined)
+  // O player e o aviso de "sem partitura" abrem `/manutencao?id=…`; já
+  // deixamos a música pronta para edição (inclusive para trocar o PDF).
+  const [editando, setEditando] = React.useState<Musica | null | undefined>(() => {
+    const id = parametros.get('id')
+    if (!id) return undefined
+    return musicas.find((m) => m.id === id) ?? undefined
+  })
   const [excluindo, setExcluindo] = React.useState<Musica | null>(null)
   const [processando, setProcessando] = React.useState(false)
   const [lista, setLista] = React.useState<Musica[]>(musicas)
   const [origem, setOrigem] = React.useState<Musica[]>(musicas)
+
+  /** Fecha o formulário e limpa o `?id=` para não reabrir ao recarregar. */
+  function fecharFormulario() {
+    setEditando(undefined)
+    if (parametros.get('id')) router.replace('/manutencao', { scroll: false })
+  }
 
   // Sincroniza a lista local quando chegamprops novas do servidor
   // (padrão do React para ajustar estado durante a renderização).
@@ -110,6 +123,14 @@ export function Manutencao({ musicas }: ManutencaoProps) {
   }, [filtradas])
 
   /* ------------------------------------------------------------- salvar */
+  function aplicarNaLista(musica: Musica, editandoId: string | null) {
+    setLista((atual) =>
+      editandoId
+        ? atual.map((m) => (m.id === musica.id ? musica : m))
+        : [...atual, musica],
+    )
+  }
+
   async function salvar(valores: ValoresFormulario, arquivo: File | null) {
     setProcessando(true)
     try {
@@ -138,22 +159,33 @@ export function Manutencao({ musicas }: ManutencaoProps) {
           method: 'POST',
           body: form,
         })
+        const retorno = await envio.json().catch(() => null)
         if (!envio.ok) {
-          const erro = await envio.json().catch(() => null)
-          toast.error(erro?.erro ?? 'Música salva, mas o PDF não foi enviado.')
-        } else {
-          musica = (await envio.json()).musica
-          toast.success('Partitura enviada.')
+          // Os dados já foram salvos; o PDF não. Mantém o formulário aberto
+          // para o usuário tentar novamente sem perder o arquivo escolhido.
+          aplicarNaLista(musica, editandoId)
+          if (!editandoId) setEditando(musica)
+          router.refresh()
+          toast.error(
+            retorno?.erro ??
+              'Os dados foram salvos, mas a partitura não foi enviada. Tente novamente.',
+          )
+          return
         }
+        musica = retorno.musica
       }
 
-      setLista((atual) =>
-        editandoId
-          ? atual.map((m) => (m.id === musica.id ? musica : m))
-          : [...atual, musica],
+      aplicarNaLista(musica, editandoId)
+      fecharFormulario()
+      toast.success(
+        arquivo
+          ? editandoId
+            ? 'Música e partitura atualizadas.'
+            : 'Música cadastrada com a partitura.'
+          : editandoId
+            ? 'Música atualizada.'
+            : 'Música cadastrada.',
       )
-      setEditando(undefined)
-      toast.success(editandoId ? 'Música atualizada.' : 'Música cadastrada.')
       router.refresh()
     } catch {
       toast.error('Falha de comunicação com o servidor.')
@@ -349,7 +381,7 @@ export function Manutencao({ musicas }: ManutencaoProps) {
       {/* Formulário */}
       <Dialog
         open={editando !== undefined}
-        onOpenChange={(aberto) => !aberto && setEditando(undefined)}
+        onOpenChange={(aberto) => !aberto && fecharFormulario()}
       >
         <DialogContent className="max-h-[92dvh] max-w-2xl overflow-y-auto">
           <DialogHeader>
@@ -364,7 +396,7 @@ export function Manutencao({ musicas }: ManutencaoProps) {
             <FormMusica
               musica={editando}
               aoSalvar={salvar}
-              aoFechar={() => setEditando(undefined)}
+              aoFechar={fecharFormulario}
               instrumentosSugeridos={instrumentosSugeridos}
               autoresSugeridos={autoresSugeridos}
             />

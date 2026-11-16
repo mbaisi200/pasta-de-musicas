@@ -5,12 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/** Remove acentos e normaliza para busca tolerante (ex.: "João" ~ "Joao"). */
+/**
+ * Remove acentos e pontuação e normaliza para busca tolerante
+ * (ex.: "João" ~ "Joao"; "Choro." ~ "choro").
+ */
 export function normalizar(valor: string): string {
   return valor
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
 }
 

@@ -41,7 +41,9 @@ export async function GET(_request: Request, { params }: Contexto) {
       'Content-Type': arquivo.tipo || 'application/pdf',
       'Content-Length': String(arquivo.buffer.length),
       'Content-Disposition': `inline; filename="${encodeURIComponent(arquivo.nome)}"`,
-      'Cache-Control': 'private, max-age=3600',
+      // A partitura pode ser substituída em Manutenção — não deixe o navegador
+      // (nem o service worker) servir o PDF antigo.
+      'Cache-Control': 'private, no-store, max-age=0',
     },
   })
 }
