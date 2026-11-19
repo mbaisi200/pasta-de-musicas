@@ -86,8 +86,23 @@ export function VisualizadorPdf({
   const [proporcaoPagina, setProporcaoPagina] = React.useState(1 / 1.414)
   const [listaAberta, setListaAberta] = React.useState(false)
   const [progresso, setProgresso] = React.useState(0)
+  /** Solicitação 6: alternar entre "caderno" (2 páginas) e rolagem contínua. */
+  const [modoPaginas, setModoPaginas] = React.useState<'caderno' | 'rolagem'>(() => {
+    if (typeof window === 'undefined') return 'caderno'
+    try {
+      return window.localStorage.getItem('pasta-de-musicas:modo-paginas') === 'rolagem'
+        ? 'rolagem'
+        : 'caderno'
+    } catch {
+      return 'caderno'
+    }
+  })
+  /** Solicitação 7: cursor karaokê (linha vertical vermelha). */
+  const [karaoke, setKaraoke] = React.useState(false)
+  const linhaKaraokeRef = React.useRef<HTMLDivElement>(null)
 
   const chavePosicao = `pasta-de-musicas:posicao:${musica.id}`
+  const chaveModoPaginas = 'pasta-de-musicas:modo-paginas'
   const aparenciaInstrumento = aparenciaDoInstrumento(musica.instrumento)
   const IconeInstrumento = aparenciaInstrumento.icone
 
@@ -110,7 +125,7 @@ export function VisualizadorPdf({
    * a lado — como um caderno aberto.
    */
   const modoNotebook = larguraArea >= 1024
-  const duasPaginas = modoNotebook && numPaginas > 1
+  const duasPaginas = modoNotebook && numPaginas > 1 && modoPaginas === 'caderno'
   const colunas = duasPaginas ? 2 : 1
 
   const larguraPagina = React.useMemo(() => {
@@ -236,6 +251,45 @@ export function VisualizadorPdf({
     setVelocidade(novo)
     persistir({ velocidade: novo })
   }
+
+  /* ------------------------------- modo de páginas (caderno x rolagem) */
+  function alternarModoPaginas() {
+    setModoPaginas((atual) => {
+      const novo = atual === 'caderno' ? 'rolagem' : 'caderno'
+      try {
+        window.localStorage.setItem(chaveModoPaginas, novo)
+      } catch {
+        /* modo privativo */
+      }
+      return novo
+    })
+  }
+
+  /* --------------------------- cursor karaokê (linha vertical vermelha) */
+  React.useEffect(() => {
+    if (!karaoke) return
+    let raf = 0
+    let posicao = 0
+    let ultimo = performance.now()
+
+    const passo = (agora: number) => {
+      const dt = Math.min((agora - ultimo) / 1000, 0.1)
+      ultimo = agora
+      const area = areaRef.current
+      const linha = linhaKaraokeRef.current
+      if (area && linha) {
+        const largura = area.clientWidth
+        // Velocidade horizontal proporcional ao nível escolhido (0..9).
+        posicao += PX_POR_SEGUNDO(velocidade) * 2.4 * dt
+        if (posicao > largura - 4) posicao = 0
+        linha.style.transform = `translateX(${Math.round(posicao)}px)`
+      }
+      raf = window.requestAnimationFrame(passo)
+    }
+
+    raf = window.requestAnimationFrame(passo)
+    return () => window.cancelAnimationFrame(raf)
+  }, [karaoke, velocidade])
 
   /* --------------------------------------------------- navegação de página */
   function irParaPagina(pagina: number, comportamento: ScrollBehavior = 'smooth') {
@@ -615,6 +669,15 @@ export function VisualizadorPdf({
           </div>
         </div>
 
+        {/* Cursor karaokê — linha vertical vermelha percorrendo a partitura */}
+        {karaoke && (
+          <div
+            ref={linhaKaraokeRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 z-40 w-[3px] rounded-full bg-red-500 shadow-[0_0_10px_2px_rgba(239,68,68,0.65)]"
+          />
+        )}
+
         {carregando && numPaginas === 0 && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
             <div className="size-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
@@ -677,6 +740,40 @@ export function VisualizadorPdf({
               <span className="w-4 text-center text-sm font-semibold tabular-nums">{velocidade}</span>
             </div>
 
+            {/* Karaokê — linha vertical vermelha (Solicitação 7) */}
+            <Button
+              variant={karaoke ? 'default' : 'secondary'}
+              size="sm"
+              className={cn(
+                'h-10 shrink-0 gap-1.5 px-2 text-xs',
+                karaoke && 'bg-red-500 text-white hover:bg-red-600',
+              )}
+              onClick={() => setKaraoke((v) => !v)}
+              aria-pressed={karaoke}
+              title="Cursor karaokê (linha vertical vermelha)"
+            >
+              <span
+                className={cn(
+                  'h-4 w-[3px] rounded-full',
+                  karaoke ? 'bg-white' : 'bg-red-500',
+                )}
+              />
+              <span className="hidden sm:inline">Karaokê</span>
+            </Button>
+
+            {/* Duas páginas x rolagem (Solicitação 6) */}
+            {modoNotebook && numPaginas > 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden h-10 shrink-0 px-2 text-xs lg:inline-flex"
+                onClick={alternarModoPaginas}
+                title="Alternar entre duas páginas e rolagem contínua"
+              >
+                {modoPaginas === 'caderno' ? 'Rolagem' : '2 páginas'}
+              </Button>
+            )}
+
             {/* Páginas + zoom — ganham espaço próprio a partir de tablet */}
             <div className="ml-auto flex shrink-0 items-center gap-1">
               <Button
@@ -738,11 +835,16 @@ export function VisualizadorPdf({
             </p>
           )}
 
-          {/* Observação da música */}
+          {/* Observação da música — rodapé legível (Solicitação 3) */}
           {musica.observacao && (
-            <p className="mt-1 truncate text-center text-xs text-muted-foreground">
-              {musica.observacao}
-            </p>
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-primary/30 bg-primary/[0.07] px-3 py-2 text-left">
+              <span className="mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                Obs.
+              </span>
+              <p className="min-w-0 whitespace-pre-wrap break-words text-xs leading-snug text-foreground">
+                {musica.observacao}
+              </p>
+            </div>
           )}
         </div>
       </div>

@@ -31,7 +31,6 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
-import { ContinuarDeOndeParou } from '@/components/catalogo/continuar'
 import { CapaSetList } from '@/components/capa/capa-setlist'
 import {
   PastaDeMusicas,
@@ -56,6 +55,28 @@ interface CatalogoProps {
 const CHAVE_ORDEM = 'pasta-de-musicas:ordem-catalogo'
 const CHAVE_SETLIST = 'pasta-de-musicas:setlist-ativo'
 const EVENTO_PREFERENCIAS = 'pasta-de-musicas:preferencias-catalogo'
+
+/**
+ * Última música aberta — usada para voltar à mesma música na lista
+ * (Solicitação: ao voltar da música, ficar nela em vez de ir para a 1ª).
+ */
+const CHAVE_MUSICA_ABERTA = 'pasta-de-musicas:musica-aberta'
+
+function registrarMusicaAberta(id: string) {
+  try {
+    window.localStorage.setItem(CHAVE_MUSICA_ABERTA, id)
+  } catch {
+    /* modo privativo */
+  }
+}
+
+function lerMusicaAberta(): string | null {
+  try {
+    return window.localStorage.getItem(CHAVE_MUSICA_ABERTA)
+  } catch {
+    return null
+  }
+}
 
 /** A transcrição de voz costuma vir com ponto final — removemos a pontuação das bordas. */
 function limparFala(texto: string): string {
@@ -161,6 +182,21 @@ export function Catalogo({ musicas }: CatalogoProps) {
   const { ordem, agrupado, mudarOrdem, alternarSetList } = usePreferenciasCatalogo()
   const [filtrosAbertos, setFiltrosAbertos] = React.useState(false)
   const [ouvindo, setOuvindo] = React.useState(false)
+
+  /**
+   * Solicitação: ao voltar de uma música, retornar à mesma música na lista
+   * (em vez de voltar para o topo / 1ª música).
+   */
+  React.useEffect(() => {
+    const id = lerMusicaAberta()
+    if (!id) return
+    const seletor = `[data-musica-id="${id.replace(/["\\]/g, '\\$&')}"]`
+    const alvo = document.querySelector<HTMLElement>(seletor)
+    if (!alvo) return
+    window.requestAnimationFrame(() => {
+      alvo.scrollIntoView({ block: 'center', behavior: 'auto' })
+    })
+  }, [])
 
   const valores = React.useMemo(() => {
     const conjuntos: Record<keyof Omit<Filtros, 'busca'>, Set<string>> = {
@@ -320,7 +356,7 @@ export function Catalogo({ musicas }: CatalogoProps) {
               <Button
                 variant="outline"
                 size="icon"
-                className="relative size-11 shrink-0 lg:hidden"
+                className="relative size-11 shrink-0 md:hidden"
                 aria-label="Abrir filtros"
               >
                 <SlidersHorizontal className="size-5" />
@@ -350,8 +386,8 @@ export function Catalogo({ musicas }: CatalogoProps) {
           </Sheet>
         </div>
 
-        {/* Filtros inline (tablet e desktop) */}
-        <div className="hidden items-center gap-2 lg:flex">
+        {/* Filtros inline (tablet e desktop) — não somem ao reduzir a tela */}
+        <div className="hidden items-center gap-2 md:flex">
           <PainelFiltros
             filtros={filtros}
             valores={valores}
@@ -435,8 +471,6 @@ export function Catalogo({ musicas }: CatalogoProps) {
         </div>
       </div>
 
-      <ContinuarDeOndeParou musicas={musicas} />
-
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="text-sm text-muted-foreground">
           {filtradas.length === musicas.length
@@ -492,7 +526,12 @@ function PainelFiltros({
   ]
 
   return (
-    <div className={cn('grid gap-2', compacto ? 'grid-cols-2 xl:grid-cols-4' : 'grid-cols-2')}>
+    <div
+      className={cn(
+        'grid gap-2',
+        compacto ? 'min-w-0 flex-1 grid-cols-2 xl:grid-cols-4' : 'grid-cols-2',
+      )}
+    >
       {campos.map(({ chave, rotulo, opcoes }) => (
         <Select
           key={chave}
@@ -560,6 +599,7 @@ function ListaMusicas({
                   return (
                     <tr
                       key={m.id}
+                      data-musica-id={m.id}
                       className="group border-b border-border/60 transition-colors last:border-0 hover:bg-accent/40"
                     >
                       <td className="px-3 py-2.5">
@@ -576,6 +616,7 @@ function ListaMusicas({
                       <td className="px-3 py-2.5">
                         <Link
                           href={`/musica/${m.id}`}
+                          onClick={() => registrarMusicaAberta(m.id)}
                           className="font-medium transition-colors hover:text-primary"
                         >
                           {m.musica}
@@ -596,7 +637,11 @@ function ListaMusicas({
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <Button asChild variant="ghost" size="icon-sm">
-                          <Link href={`/musica/${m.id}`} aria-label={`Tocar ${m.musica}`}>
+                          <Link
+                            href={`/musica/${m.id}`}
+                            onClick={() => registrarMusicaAberta(m.id)}
+                            aria-label={`Tocar ${m.musica}`}
+                          >
                             <Play className="size-4" />
                           </Link>
                         </Button>
@@ -634,9 +679,10 @@ function ListaMusicas({
                   const aparencia = aparenciaDoInstrumento(m.instrumento)
                   const Icone = aparencia.icone
                   return (
-                    <li key={m.id} className="min-w-0">
+                    <li key={m.id} data-musica-id={m.id} className="min-w-0">
                       <Link
                         href={`/musica/${m.id}`}
+                        onClick={() => registrarMusicaAberta(m.id)}
                         className="group block h-full min-w-0 no-tap-highlight"
                       >
                         <Card className="vidro borda-gradiente cartao-vivo h-full overflow-hidden p-0 active:scale-[0.99]">

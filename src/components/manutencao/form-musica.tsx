@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileSearch, FileUp, Loader2, Paperclip, Sparkles, Trash2 } from 'lucide-react'
+import { ChevronDown, FileSearch, FileUp, Loader2, Paperclip, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { analisarPartituraNoNavegador } from '@/lib/pdf/analisar-cliente'
 import { VELOCIDADE_MAX, VELOCIDADE_MIN, TAMANHO_MAXIMO_PDF, type Musica } from '@/lib/types'
-import { formatarBytes } from '@/lib/utils'
+import { cn, formatarBytes } from '@/lib/utils'
 
 export interface ValoresFormulario {
   musica: string
@@ -68,6 +68,7 @@ export function FormMusica({
     paginas: number
   } | null>(null)
   const inputArquivo = React.useRef<HTMLInputElement>(null)
+  const [sugestoesAbertas, setSugestoesAbertas] = React.useState(false)
 
   function alterar<C extends keyof ValoresFormulario>(campo: C, valor: ValoresFormulario[C]) {
     setValores((v) => ({ ...v, [campo]: valor }))
@@ -182,19 +183,75 @@ export function FormMusica({
 
         <div className="space-y-1.5">
           <Label htmlFor="campo-instrumento">Instrumento / tipo</Label>
-          <Input
-            id="campo-instrumento"
-            value={valores.instrumento}
-            onChange={(e) => alterar('instrumento', e.target.value)}
-            placeholder="Ex.: Teclado"
-            maxLength={20}
-            list="sugestoes-instrumento"
-          />
-          <datalist id="sugestoes-instrumento">
-            {instrumentosSugeridos.map((i) => (
-              <option key={i} value={i} />
-            ))}
-          </datalist>
+          <div className="relative">
+            <Input
+              id="campo-instrumento"
+              value={valores.instrumento}
+              onChange={(e) => {
+                alterar('instrumento', e.target.value)
+                setSugestoesAbertas(true)
+              }}
+              onFocus={() => setSugestoesAbertas(true)}
+              onBlur={() => window.setTimeout(() => setSugestoesAbertas(false), 150)}
+              placeholder="Selecione ou digite"
+              maxLength={20}
+              className="pr-10"
+              autoComplete="off"
+              aria-expanded={sugestoesAbertas}
+              aria-controls="lista-sugestoes-instrumento"
+            />
+            {/* Solicitação 1: a seta abre a lista; digitar também filtra */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setSugestoesAbertas((v) => !v)}
+              className="absolute right-1 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={sugestoesAbertas ? 'Fechar lista de instrumentos' : 'Abrir lista de instrumentos'}
+            >
+              <ChevronDown
+                className={cn('size-4 transition-transform', sugestoesAbertas && 'rotate-180')}
+              />
+            </button>
+            {sugestoesAbertas && (
+              <ul
+                id="lista-sugestoes-instrumento"
+                role="listbox"
+                className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg"
+              >
+                {(() => {
+                  const termo = valores.instrumento.trim().toLowerCase()
+                  const opcoes = instrumentosSugeridos.filter(
+                    (i) => !termo || i.toLowerCase().includes(termo),
+                  )
+                  if (opcoes.length === 0) {
+                    return (
+                      <li className="px-2 py-1.5 text-xs text-muted-foreground">
+                        Nenhuma sugestão — digite para criar.
+                      </li>
+                    )
+                  }
+                  return opcoes.map((i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          alterar('instrumento', i)
+                          setSugestoesAbertas(false)
+                        }}
+                        className={cn(
+                          'flex w-full items-center rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent',
+                          i === valores.instrumento && 'bg-primary/10 font-medium text-primary',
+                        )}
+                      >
+                        {i}
+                      </button>
+                    </li>
+                  ))
+                })()}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div className="space-y-1.5">
@@ -206,6 +263,9 @@ export function FormMusica({
             max={999}
             value={valores.ordem}
             onChange={(e) => alterar('ordem', Number(e.target.value) || 0)}
+            /* Solicitação 2: ao focar, seleciona o valor inteiro — digitar por
+               cima do zero substitui o número em vez de deixar "0" na frente. */
+            onFocus={(e) => e.target.select()}
           />
         </div>
       </div>
