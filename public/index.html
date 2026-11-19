@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pasta de Músicas</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --border: #e2e8f0;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --danger: #dc2626;
+    --danger-hover: #b91c1c;
+    --success: #059669;
+    --karaoke: #ef4444;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ===== LAYOUT ===== */
+  #app { display: flex; flex-direction: column; height: 100vh; max-height: 100vh; }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+  .app-title { font-size: 1.25rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-outline { background: #fff; color: var(--text); border-color: var(--border); }
+  .btn-outline:hover:not(:disabled) { background: #f1f5f9; border-color: var(--muted); }
+  .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+  .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+  .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.85rem; }
+
+  /* ===== TELAS ===== */
+  .screen { display: none; width: 100%; flex: 1; overflow: hidden; position: relative; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ===== TOOLBAR ===== */
+  .toolbar {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+  .filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    overflow-x: auto;
+  }
+  .filters-row::-webkit-scrollbar { height: 6px; }
+  .filters-row::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+  .field-group { display: flex; flex-direction: column; gap: 0.35rem; min-width: 130px; }
+  .field-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  .field-row { display: flex; align-items: center; gap: 0.5rem; }
+
+  input, select, textarea {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    background: #fff;
+    color: var(--text);
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+
+  /* Lista de músicas */
+  .content { flex: 1; overflow-y: auto; padding: 1rem; position: relative; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+  .music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.85rem; }
+  .music-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .music-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--primary); }
+  .music-card.selected { border-color: var(--primary); background: #eff6ff; }
+  .music-name { font-weight: 700; font-size: 1rem; color: var(--text); }
+  .music-author { font-size: 0.85rem; color: var(--muted); }
+  .music-meta { font-size: 0.78rem; color: var(--muted); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #e2e8f0;
+    color: var(--text);
+  }
+  .badge.instrument { background: #dbeafe; color: var(--primary); }
+  .badge.obs { background: #fef2f2; color: var(--danger); }
+
+  /* ===== VISUALIZADOR ===== */
+  .viewer-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .viewer-title { font-size: 1.1rem; font-weight: 700; margin-right: auto; }
+  .viewer-meta { font-size: 0.85rem; color: var(--muted); display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .viewer-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; background: #000; }
+
+  /* Dual page vs rolagem */
+  .pdf-stage { flex: 1; overflow: auto; background: #111; position: relative; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+  .pdf-stage.dual { display: flex; gap: 0; }
+  .pdf-page { background: #fff; border: 1px solid #333; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+  .pdf-page.single { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .pdf-page.dual { width: 50%; height: 100%; object-fit: contain; }
+
+  /* Cursor karaokê - linha vertical vermelha */
+  #karaoke-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--karaoke);
+    z-index: 50;
+    pointer-events: none;
+    display: none;
+    transition: left 0.1s linear;
+  }
+  #karaoke-line.active { display: block; }
+
+  .karaoke-controls {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    z-index: 60;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .karaoke-btn { background: transparent; border: 1px solid rgba(255,255,255,0.4); color: #fff; border-radius: 0.5rem; padding: 0.35rem 0.7rem; font-size: 0.85rem; cursor: pointer; }
+  .karaoke-btn.active { background: var(--karaoke); border-color: var(--karaoke); }
+  .karaoke-speed { color: #fff; font-size: 0.8rem; }
+
+  /* Observações */
+  .obs-footer {
+    background: #fef2f2;
+    border-top: 2px solid var(--danger);
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: #991b1b;
+    flex-shrink: 0;
+    display: none;
+  }
+  .obs-footer.show { display: block; }
+  .obs-title { font-weight: 700; display: block; margin-bottom: 0.25rem; }
+
+  .obs-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid #ddd;
+    color: var(--danger);
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    z-index: 60;
+  }
+  .obs-btn:hover { background: #fef2f2; }
+
+  /* ===== MANUTENCAO FORM ===== */
+  .form-container { flex: 1; overflow-y: auto; padding: 1rem; }
+  .form-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+  .form-field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .form-field.full { grid-column: 1 / -1; }
+
+  /* Combo customizado (Instrumento/Tipo) - seta + digitação */
+  .custom-combo { position: relative; width: 100%; }
+  .custom-combo input {
+    padding-right: 2.5rem;
+    cursor: default;
+  }
+  .custom-combo .arrow {
+    position: absolute;
+    right: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--muted);
+    pointer-events: none;
+  }
+  .custom-combo .dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 0.5rem 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: var(--shadow);
+    display: none;
+  }
+  .custom-combo .dropdown.show { display: block; }
+  .custom-combo .option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .custom-combo .option:last-child { border-bottom: none; }
+  .custom-combo .option:hover { background: #eff6ff; color: var(--primary); }
+  .custom-combo .option.selected { background: #dbeafe; color: var(--primary); font-weight: 600; }
+
+  /* ===== UTILS ===== */
+  .hidden { display: none !important; }
+  .text-danger { color: var(--danger); }
+  .text-muted { color: var(--muted); }
+  .mt-1 { margin-top: 0.5rem; }
+  .mb-1 { margin-bottom: 0.5rem; }
+
+  /* Tablet - filtros nunca somem */
+  @media (max-width: 768px) {
+    .filters-row { flex-wrap: nowrap; }
+    header { padding: 0.5rem 0.75rem; }
+    .content { padding: 0.75rem; }
+    .music-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .pdf-stage { padding: 0.5rem; }
+    .karaoke-controls { bottom: 0.7rem; gap: 0.5rem; }
+    .karaoke-btn { padding: 0.3rem 0.5rem; font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="app-title">🎵 Pasta de Músicas</div>
+    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+      <button class="btn btn-outline" id="btnNovaMusica">Nova Música</button>
+      <button class="btn btn-outline" id="btnVoltarLista" style="display:none;">Voltar</button>
+    </div>
+  </header>
+
+  <!-- ========== TELA 1: LISTA DE MÚSICAS ========== -->
+  <div id="telaLista" class="screen active">
+    <div class="toolbar">
+      <div class="filters-row">
+        <div class="field-group">
+          <label class="field-label">Buscar</label>
+          <input type="text" id="filtroBusca" placeholder="Nome, autor, estilo...">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Instrumento</label>
+          <div class="custom-combo">
+            <input type="text" id="filtroInstrumento" placeholder="Todos" readonly>
+            <div class="arrow"></div>
+            <div class="dropdown" id="listaInstrumento"></div>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Tipo / Estilo</label>
+          <div class="custom-combo">
+            <input type="text" id="filtroTipo" placeholder="Todos" readonly>
+            <div class="arrow"></div>
+            <div class="dropdown" id="listaTipo"></div>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Grupo / Repertório</label>
+          <div class="custom-combo">
+            <input type="text" id="filtroGrupo" placeholder="Todos" readonly>
+            <div class="arrow"></div>
+            <div class="dropdown" id="listaGrupo"></div>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" id="btnLimparFiltros">Limpar filtros</button>
+      </div>
+    </div>
+    <div class="content">
+      <div id="listaMusicas" class="music-grid"></div>
+    </div>
+  </div>
+
+  <!-- ========== TELA 2: VISUALIZADOR DE MÚSICA ========== -->
+  <div id="telaVisualizador" class="screen">
+    <div class="viewer-header">
+      <button class="btn btn-outline btn-sm" id="btnVoltarVisualizador">← Voltar à lista</button>
+      <div class="viewer-title" id="viewerNome">Música</div>
+      <div class="viewer-meta" id="viewerMeta"></div>
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <button class="btn btn-outline btn-sm" id="btnModoDual">📄 Duas páginas</button>
+        <button class="btn btn-outline btn-sm" id="btnObsAbrir">📝 Observações</button>
+      </div>
+    </div>
+    <div class="viewer-body">
+      <button class="obs-btn" id="btnObsFlutuante" style="display:none;">Ver Observações</button>
+      <div class="pdf-stage" id="pdfStage">
+        <div id="karaoke-line"></div>
+        <img id="pdfImg" class="pdf-page single" src="" alt="Página da música" style="display:none;">
+        <iframe id="pdfFrame" class="pdf-page single" src="" style="display:none; width:100%; height:100%; border:none;"></iframe>
+        <div id="pdfTexto" class="pdf-page single" style="display:none; color:#fff; padding:2rem; font-size:1.2rem; line-height:1.8; background:#111; max-width:900px;"></div>
+      </div>
+      <div class="karaoke-controls" id="karaokeControls" style="display:none;">
+        <button class="karaoke-btn" id="karaokePlay">▶ Iniciar</button>
+        <button class="karaoke-btn" id="karaokePause">⏸ Pausar</button>
+        <button class="karaoke-btn" id="karaokeReset">↻ Reiniciar</button>
+        <span class="karaoke-speed">Velocidade: <span id="karaokeVel">1</span>x</span>
+      </div>
+      <div class="obs-footer obs-show" id="obsFooter">
+        <span class="obs-title">Observações:</span>
+        <span id="obsTexto"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TELA 3: MANUTENÇÃO ========== -->
+  <div id="telaManutencao" class="screen">
+    <div class="toolbar">
+      <button class="btn btn-outline btn-sm" id="btnVoltarManutencao">← Voltar</button>
+      <div style="margin-left:auto; display:flex; gap:0.5rem;">
+        <button class="btn btn-danger btn-sm" id="btnExcluir" style="display:none;">Excluir</button>
+        <button class="btn btn-primary btn-sm" id="btnSalvar">Salvar</button>
+      </div>
+    </div>
+    <div class="form-container">
+      <div class="form-card">
+        <h3 style="margin-bottom:1rem; font-size:1.1rem; color:var(--text);">Cadastro de Música</h3>
+        <input type="hidden" id="manId">
+        <div class="form-row">
+          <div class="form-field">
+            <label class="field-label">Nome da música *</label>
+            <input type="text" id="manNome" placeholder="Ex: Smile">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Autor(es)</label>
+            <input type="text" id="manAutor" placeholder="Ex: Charles Chaplin">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="field-label">Grupo / Repertório</label>
+            <input type="text" id="manGrupo" placeholder="Ex: G-005">
+          </div>
+          <div class="form-field">
+            <label class="field-label">Estilo</label>
+            <input type="text" id="manEstilo" placeholder="Ex: Jazz Standard">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="field-label">Instrumento / Tipo</label>
+            <div class="custom-combo">
+              <input type="text" id="manInstrumento" placeholder="Selecione ou digite" readonly>
+              <div class="arrow"></div>
+              <div class="dropdown" id="listaInstrumentoMan"></div>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="field-label">Ordem</label>
+            <input type="text" id="manOrdem" placeholder="0" maxlength="2">
+          </div>
+        </div>
+        <div class="form-field full">
+          <label class="field-label">PDF / Caminho do arquivo</label>
+          <input type="text" id="manPdf" placeholder="Caminho ou nome do PDF na pasta /PDF/">
+        </div>
+        <div class="form-field full">
+          <label class="field-label">Observações</label>
+          <textarea id="manObs" rows="3" placeholder="Informações importantes para o músico..."></textarea>
+        </div>
+        <div class="form-row mt-1">
+          <div class="form-field">
+            <label class="field-label">Rolamento</label>
+            <select id="manRolamento">
+              <option value="T">Sim (rolar)</option>
+              <option value="F">Não (duas páginas)</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="field-label">Velocidade (1-9)</label>
+            <input type="number" id="manVelocidade" min="1" max="9" value="1">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   CONFIGURAÇÃO DA API
+   ================================================================ */
+const API_BASE = '';
+
+let musicas = [];
+let modoDual = false;
+let karaokeInterval = null;
+let karaokePos = 0;
+let karaokeAtivo = false;
+let indiceMusicaAberta = null;
+let scrollPosLista = 0;
+let todosInstrumentos = [];
+let todosTipos = [];
+let todosGrupos = [];
+
+/* ================================================================
+   INICIALIZAÇÃO
+   ================================================================ */
+document.addEventListener('DOMContentLoaded', async () => {
+  await carregarDados();
+  preencherCombosFiltros();
+  renderLista();
+  setupEventos();
+});
+
+async function carregarDados() {
+  try {
+    const [mus, filtros] = await Promise.all([
+      fetch(`${API_BASE}/api/musicas`).then(r => r.json()),
+      fetch(`${API_BASE}/api/filtros`).then(r => r.json())
+    ]);
+    musicas = mus;
+    todosInstrumentos = filtros.instrumentos || [];
+    todosTipos = filtros.estilos || [];
+    todosGrupos = filtros.grupos || [];
+  } catch (e) {
+    console.error('Erro ao carregar dados:', e);
+  }
+}
+
+/* ================================================================
+   COMBO CUSTOMIZADO - Solicitação 1: seta + digitação
+   ================================================================ */
+function initCustomCombo(inputId, listId, itensRef, onChange) {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+
+  function mostrarTodos() {
+    list.innerHTML = '';
+    itensRef.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'option' + (input.value === item ? ' selected' : '');
+      div.textContent = item;
+      div.onclick = () => {
+        input.value = item;
+        list.classList.remove('show');
+        if (onChange) onChange(item);
+      };
+      list.appendChild(div);
+    });
+    list.classList.add('show');
+  }
+
+  input.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('show'));
+    if (!list.classList.contains('show')) mostrarTodos();
+    else list.classList.remove('show');
+  });
+
+  input.addEventListener('input', () => {
+    const termo = input.value.toLowerCase();
+    list.innerHTML = '';
+    let tem = false;
+    itensRef.forEach(item => {
+      if (item.toLowerCase().includes(termo)) {
+        const div = document.createElement('div');
+        div.className = 'option' + (input.value === item ? ' selected' : '');
+        div.textContent = item;
+        div.onclick = () => {
+          input.value = item;
+          list.classList.remove('show');
+          if (onChange) onChange(item);
+        };
+        list.appendChild(div);
+        tem = true;
+      }
+    });
+    if (termo === '') {
+      mostrarTodos();
+    } else {
+      list.classList.add('show');
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !list.contains(e.target)) {
+      list.classList.remove('show');
+    }
+  });
+}
+
+function preencherCombosFiltros() {
+  initCustomCombo('filtroInstrumento', 'listaInstrumento', todosInstrumentos, (val) => renderLista());
+  initCustomCombo('filtroTipo', 'listaTipo', todosTipos, (val) => renderLista());
+  initCustomCombo('filtroGrupo', 'listaGrupo', todosGrupos, (val) => renderLista());
+  initCustomCombo('manInstrumento', 'listaInstrumentoMan', todosInstrumentos);
+}
+
+/* ================================================================
+   RENDER LISTA - Solicitação 4: lembrar posição ao voltar
+   ================================================================ */
+async function renderLista() {
+  const busca = document.getElementById('filtroBusca').value.toLowerCase();
+  const inst = document.getElementById('filtroInstrumento').value;
+  const tipo = document.getElementById('filtroTipo').value;
+  const grupo = document.getElementById('filtroGrupo').value;
+
+  const params = new URLSearchParams();
+  if (busca) params.set('busca', busca);
+  if (inst) params.set('instrumento', inst);
+  if (tipo) params.set('estilo', tipo);
+  if (grupo) params.set('grupo', grupo);
+
+  let filtradas = musicas;
+  try {
+    const r = await fetch(`${API_BASE}/api/musicas?${params.toString()}`);
+    filtradas = await r.json();
+  } catch (e) {
+    filtradas = musicas.filter(m => {
+      const okBusca = !busca || m.musica.toLowerCase().includes(busca) || m.autor.toLowerCase().includes(busca) || m.estilo.toLowerCase().includes(busca);
+      const okInst = !inst || m.instrument === inst;
+      const okTipo = !tipo || m.estilo === tipo;
+      const okGrupo = !grupo || m.grupo === grupo;
+      return okBusca && okInst && okTipo && okGrupo;
+    }).sort((a,b) => a.ordem - b.ordem || a.musica.localeCompare(b.musica));
+  }
+
+  const container = document.getElementById('listaMusicas');
+  container.innerHTML = '';
+
+  if (filtradas.length === 0) {
+    container.innerHTML = '<div class="empty-state">Nenhuma música encontrada.</div>';
+    return;
+  }
+
+  filtradas.forEach((m, idx) => {
+    const card = document.createElement('div');
+    card.className = 'music-card' + (indiceMusicaAberta !== null && musicas.findIndex(x => x.id === m.id) === indiceMusicaAberta ? ' selected' : '');
+    card.innerHTML = `
+      <div class="music-name">${escapeHtml(m.musica)}</div>
+      <div class="music-author">${escapeHtml(m.autor)}</div>
+      <div class="music-meta">
+        <span class="badge instrument">${escapeHtml(m.instrument)}</span>
+        ${m.observacoe ? '<span class="badge obs">📝 Obs</span>' : ''}
+      </div>
+    `;
+    card.onclick = () => {
+      scrollPosLista = window.scrollY;
+      indiceMusicaAberta = musicas.findIndex(x => x.id === m.id);
+      abrirVisualizador(m.id);
+    };
+    container.appendChild(card);
+  });
+}
+
+/* ================================================================
+   ABRIR VISUALIZADOR - Solicitação 4
+   ================================================================ */
+async function abrirVisualizador(id) {
+  let m;
+  try {
+    const r = await fetch(`${API_BASE}/api/musicas/${id}`);
+    m = await r.json();
+  } catch (e) {
+    m = musicas.find(x => x.id === id);
+  }
+  if (!m) return;
+
+  document.getElementById('viewerNome').textContent = m.musica;
+  document.getElementById('viewerMeta').innerHTML = `
+    <span>${escapeHtml(m.autor)}</span>
+    <span>•</span>
+    <span>${escapeHtml(m.estilo)}</span>
+    <span>•</span>
+    <span>${escapeHtml(m.instrument)}</span>
+    <span>•</span>
+    <span>Ordem ${m.ordem}</span>
+  `;
+
+  // Observações - Solicitação 3: rodapé na música aberta
+  const obsFooter = document.getElementById('obsFooter');
+  const obsTexto = document.getElementById('obsTexto');
+  const btnObsAbrir = document.getElementById('btnObsAbrir');
+  const btnObsFlutuante = document.getElementById('btnObsFlutuante');
+
+  if (m.observacoe && m.observacoe.trim()) {
+    obsTexto.textContent = m.observacoe;
+    obsFooter.classList.add('show');
+    btnObsFlutuante.style.display = 'none';
+  } else {
+    obsFooter.classList.remove('show');
+    btnObsFlutuante.style.display = 'inline-flex';
+    btnObsFlutuante.onclick = () => alert('Esta música não tem observações cadastradas.');
+    btnObsAbrir.onclick = () => alert('Esta música não tem observações cadastradas.');
+  }
+
+  // Conteúdo PDF
+  const pdfStage = document.getElementById('pdfStage');
+  const pdfImg = document.getElementById('pdfImg');
+  const pdfFrame = document.getElementById('pdfFrame');
+  const pdfTexto = document.getElementById('pdfTexto');
+
+  pdfImg.style.display = 'none';
+  pdfFrame.style.display = 'none';
+  pdfTexto.style.display = 'none';
+
+  const pdfPath = m.pdf;
+  pdfFrame.src = pdfPath;
+  pdfFrame.style.display = 'block';
+  pdfFrame.onerror = () => {
+    pdfFrame.style.display = 'none';
+    pdfTexto.textContent = `📄 ${m.musica}\n\nArquivo: ${pdfPath}\n\n(PDF não encontrado neste caminho. Ajuste o caminho no cadastro.)`;
+    pdfTexto.style.display = 'block';
+  };
+
+  // Karaokê - Solicitação 7
+  const karaokeControls = document.getElementById('karaokeControls');
+  const karaokeLine = document.getElementById('karaoke-line');
+  const vel = parseInt(m.velocidade) || 1;
+  document.getElementById('karaokeVel').textContent = vel;
+  karaokeControls.style.display = m.rolamento === 'T' ? 'flex' : 'none';
+  karaokeLine.style.display = 'none';
+  karaokeAtivo = false;
+  clearInterval(karaokeInterval);
+  karaokePos = 0;
+  karaokeLine.style.left = '0%';
+
+  // Dual page vs rolagem - Solicitação 6
+  modoDual = m.rolamento === 'F';
+  const btnDual = document.getElementById('btnModoDual');
+  btnDual.textContent = modoDual ? '📄 Rolagem' : '📄 Duas páginas';
+  btnDual.onclick = () => {
+    modoDual = !modoDual;
+    btnDual.textContent = modoDual ? '📄 Rolagem' : '📄 Duas páginas';
+    aplicarModoDual();
+  };
+  aplicarModoDual();
+
+  // Mostrar tela
+  document.getElementById('btnVoltarLista').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('telaVisualizador').classList.add('active');
+}
+
+/* ================================================================
+   VOLTAR PARA LISTA - Solicitação 4: mesma música, mesma posição
+   ================================================================ */
+document.getElementById('btnVoltarVisualizador').onclick = () => {
+  clearInterval(karaokeInterval);
+  karaokeAtivo = false;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('telaLista').classList.add('active');
+  renderLista();
+  setTimeout(() => window.scrollTo(0, scrollPosLista || 0), 50);
+};
+
+document.getElementById('btnVoltarLista').onclick = () => {
+  document.getElementById('btnVoltarLista').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('telaLista').classList.add('active');
+  renderLista();
+  setTimeout(() => window.scrollTo(0, scrollPosLista || 0), 50);
+};
+
+/* ================================================================
+   DUAL PAGE vs ROLAGEM - Solicitação 6
+   ================================================================ */
+function aplicarModoDual() {
+  const stage = document.getElementById('pdfStage');
+  const pages = stage.querySelectorAll('.pdf-page');
+  pages.forEach(p => {
+    if (modoDual) {
+      p.classList.remove('single');
+      p.classList.add('dual');
+    } else {
+      p.classList.remove('dual');
+      p.classList.add('single');
+    }
+  });
+  stage.classList.toggle('dual', modoDual);
+}
+
+/* ================================================================
+   KARAOKÊ - Solicitação 7: linha vertical vermelha
+   ================================================================ */
+document.getElementById('karaokePlay').onclick = () => {
+  if (karaokeAtivo) return;
+  karaokeAtivo = true;
+  const line = document.getElementById('karaoke-line');
+  const stage = document.getElementById('pdfStage');
+  const vel = parseInt(document.getElementById('karaokeVel').textContent) || 1;
+  const velocidadePx = 1 + (vel * 0.6);
+  line.style.display = 'block';
+  line.style.left = '0%';
+  karaokePos = 0;
+  document.getElementById('karaokePlay').classList.add('active');
+  document.getElementById('karaokePause').classList.remove('active');
+
+  karaokeInterval = setInterval(() => {
+    karaokePos += velocidadePx;
+    const max = stage.clientWidth - 4;
+    if (karaokePos > max) karaokePos = 0;
+    line.style.left = karaokePos + 'px';
+  }, 30);
+};
+
+document.getElementById('karaokePause').onclick = () => {
+  karaokeAtivo = false;
+  clearInterval(karaokeInterval);
+  document.getElementById('karaokePlay').classList.remove('active');
+  document.getElementById('karaokePause').classList.add('active');
+};
+
+document.getElementById('karaokeReset').onclick = () => {
+  karaokeAtivo = false;
+  clearInterval(karaokeInterval);
+  const line = document.getElementById('karaoke-line');
+  karaokePos = 0;
+  line.style.left = '0%';
+  document.getElementById('karaokePlay').classList.remove('active');
+  document.getElementById('karaokePause').classList.add('active');
+};
+
+/* ================================================================
+   MANUTENÇÃO (CRUD)
+   ================================================================ */
+document.getElementById('btnNovaMusica').onclick = () => {
+  document.getElementById('manId').value = '';
+  document.getElementById('btnExcluir').style.display = 'none';
+  limparFormManutencao();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('telaManutencao').classList.add('active');
+};
+
+document.getElementById('btnVoltarManutencao').onclick = () => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('telaLista').classList.add('active');
+  renderLista();
+};
+
+function limparFormManutencao() {
+  ['manNome','manAutor','manGrupo','manEstilo','manInstrumento','manOrdem','manPdf','manObs','manVelocidade'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('manRolamento').value = 'T';
+  document.getElementById('manInstrumento').dataset.val = '';
+}
+
+// Solicitação 2: digitar sobre o zero não deixa zero na frente
+document.getElementById('manOrdem').addEventListener('focus', () => {
+  if (document.getElementById('manOrdem').value === '0') {
+    document.getElementById('manOrdem').value = '';
+  }
+});
+document.getElementById('manOrdem').addEventListener('input', (e) => {
+  let v = e.target.value.replace(/\D/g, '');
+  if (v.length > 2) v = v.slice(0, 2);
+  e.target.value = v;
+});
+
+document.getElementById('btnSalvar').onclick = async () => {
+  const id = document.getElementById('manId').value;
+  const dados = {
+    id: id ? parseInt(id) : Date.now(),
+    musica: document.getElementById('manNome').value.trim(),
+    autor: document.getElementById('manAutor').value.trim(),
+    grupo: document.getElementById('manGrupo').value.trim(),
+    estilo: document.getElementById('manEstilo').value.trim(),
+    instrument: document.getElementById('manInstrumento').value.trim(),
+    ordem: parseInt(document.getElementById('manOrdem').value) || 0,
+    pdf: document.getElementById('manPdf').value.trim(),
+    rolamento: document.getElementById('manRolamento').value,
+    velocidade: document.getElementById('manVelocidade').value.trim(),
+    observacoe: document.getElementById('manObs').value.trim(),
+  };
+
+  if (!dados.musica) {
+    alert('Informe o nome da música.');
+    return;
+  }
+
+  try {
+    if (id) {
+      await fetch(`${API_BASE}/api/musicas/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados)
+      });
+    } else {
+      await fetch(`${API_BASE}/api/musicas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados)
+      });
+    }
+    await carregarDados();
+    preencherCombosFiltros();
+    renderLista();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('telaLista').classList.add('active');
+  } catch (e) {
+    alert('Erro ao salvar: ' + e.message);
+  }
+};
+
+document.getElementById('btnExcluir').onclick = async () => {
+  const id = parseInt(document.getElementById('manId').value);
+  if (!confirm('Excluir esta música?')) return;
+  try {
+    await fetch(`${API_BASE}/api/musicas/${id}`, { method: 'DELETE' });
+    await carregarDados();
+    preencherCombosFiltros();
+    renderLista();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('telaLista').classList.add('active');
+  } catch (e) {
+    alert('Erro ao excluir: ' + e.message);
+  }
+};
+
+// Carregar música existente para edição
+window.editarMusica = async function(id) {
+  try {
+    const r = await fetch(`${API_BASE}/api/musicas/${id}`);
+    const m = await r.json();
+    document.getElementById('manId').value = m.id;
+    document.getElementById('manNome').value = m.musica;
+    document.getElementById('manAutor').value = m.autor;
+    document.getElementById('manGrupo').value = m.grupo;
+    document.getElementById('manEstilo').value = m.estilo;
+    document.getElementById('manInstrumento').value = m.instrument;
+    document.getElementById('manInstrumento').dataset.val = m.instrument;
+    document.getElementById('manOrdem').value = m.ordem;
+    document.getElementById('manPdf').value = m.pdf;
+    document.getElementById('manObs').value = m.observacoe;
+    document.getElementById('manRolamento').value = m.rolamento;
+    document.getElementById('manVelocidade').value = m.velocidade;
+    document.getElementById('btnExcluir').style.display = 'inline-block';
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('telaManutencao').classList.add('active');
+  } catch (e) {
+    alert('Erro ao carregar música: ' + e.message);
+  }
+};
+
+/* ================================================================
+   FILTROS
+   ================================================================ */
+document.getElementById('filtroBusca').addEventListener('input', renderLista);
+document.getElementById('btnLimparFiltros').onclick = () => {
+  document.getElementById('filtroBusca').value = '';
+  document.getElementById('filtroInstrumento').value = '';
+  document.getElementById('filtroTipo').value = '';
+  document.getElementById('filtroGrupo').value = '';
+  renderLista();
+};
+
+function escapeHtml(t) {
+  if (!t) return '';
+  return String(t).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"
+  }[c]));
+}
+</script>
+
+</body>
+</html>
