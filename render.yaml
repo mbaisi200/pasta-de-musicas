@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: pasta-de-musicas
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 3000
